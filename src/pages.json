@@ -1,0 +1,85 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/cat/cat",
+      "style": {
+        "navigationBarTitleText": "我的猫咪"
+      }
+    },
+    {
+      "path": "pages/checkin/checkin",
+      "style": {
+        "navigationBarTitleText": "打卡"
+      }
+    },
+    {
+      "path": "pages/ranking/ranking",
+      "style": {
+        "navigationBarTitleText": "排行榜"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2979ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/cat/cat",
+        "text": "猫咪",
+        "iconPath": "static/tabbar/cat.png",
+        "selectedIconPath": "static/tabbar/cat-active.png"
+      },
+      {
+        "pagePath": "pages/ranking/ranking",
+        "text": "排行",
+        "iconPath": "static/tabbar/rank.png",
+        "selectedIconPath": "static/tabbar/rank-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png"
+      }
+    ]
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "uview-plus/components/u-$1/u-$1.vue"
+    }
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "每日打卡",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  }
+}
