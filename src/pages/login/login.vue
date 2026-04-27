@@ -207,7 +207,7 @@ const handleWechatUserInfo = (res: any) => {
 <style lang="scss" scoped>
 .login-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
   padding: 60rpx 40rpx;
 }
 
@@ -260,7 +260,7 @@ const handleWechatUserInfo = (res: any) => {
   }
 
   .agreement-link {
-    color: #2979ff;
+    color: #AED581;
     text-decoration: underline;
   }
 }

@@ -14,11 +14,11 @@
 
 /* 颜色变量 */
 
-/* 行为相关颜色 */
-$uni-color-primary: #007aff;
-$uni-color-success: #4cd964;
-$uni-color-warning: #f0ad4e;
-$uni-color-error: #dd524d;
+/* 行为相关颜色 - Yellow-Green Theme */
+$uni-color-primary: #AED581;
+$uni-color-success: #7CB342;
+$uni-color-warning: #CDDC39;
+$uni-color-error: #FF6F00;
 
 /* 文字基本颜色 */
 $uni-text-color: #333; // 基本色
@@ -29,7 +29,7 @@ $uni-text-color-disable: #c0c0c0;
 
 /* 背景颜色 */
 $uni-bg-color: #fff;
-$uni-bg-color-grey: #f8f8f8;
+$uni-bg-color-grey: #F9FBE7;
 $uni-bg-color-hover: #f1f1f1; // 点击状态颜色
 $uni-bg-color-mask: rgba(0, 0, 0, 0.4); // 遮罩颜色
 
@@ -78,14 +78,18 @@ $uni-font-size-paragraph: 15px;
 /* 引入 uView-Plus 主题变量 */
 @import 'uview-plus/theme.scss';
 
-/* 自定义主题颜色 */
-$u-primary: #2979ff;
-$u-success: #4cd964;
-$u-warning: #f0ad4e;
-$u-error: #dd524d;
-$u-info: #909399;
+/* 自定义主题颜色 - Yellow-Green Theme */
+$u-primary: #AED581;
+$u-success: #7CB342;
+$u-warning: #CDDC39;
+$u-error: #FF6F00;
+$u-info: #9E9D24;
 
-/* 自定义应用变量 */
-$cat-primary: #ff9800;
-$bg-page: #f5f7fa;
+/* 自定义应用变量 - Yellow-Green Theme */
+$cat-primary: #C0CA33;
+$bg-page: #F9FBE7;
 $bg-card: #ffffff;
+
+/* Gradient Variables - Yellow-Green Theme */
+$gradient-primary: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
+$gradient-accent: linear-gradient(135deg, #FFEB3B 0%, #AED581 100%);

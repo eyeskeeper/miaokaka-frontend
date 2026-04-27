@@ -7,7 +7,7 @@
         <view class="rank-info">
           <text class="rank-name">{{ userStore.nickname || '喵星人' }}</text>
           <text class="rank-desc">
-            第 {{ myRank }} 名 · {{ catStore.points }} 积分
+            第 {{ myRank }} 名 · {{ catStore.totalPoints }} 总积分
           </text>
         </view>
         <u-icon name="arrow-right" color="#999" size="24"></u-icon>
@@ -33,9 +33,9 @@
             <text class="user-points">{{ user.points }} 积分</text>
           </view>
           <view class="medal">
-            <u-icon v-if="index === 0" name="star" color="#ffd700" size="24"></u-icon>
-            <u-icon v-else-if="index === 1" name="star" color="#c0c0c0" size="24"></u-icon>
-            <u-icon v-else-if="index === 2" name="star" color="#cd7f32" size="24"></u-icon>
+            <u-icon v-if="index === 0" name="star" color="#CDDC39" size="24"></u-icon>
+            <u-icon v-else-if="index === 1" name="star" color="#AED581" size="24"></u-icon>
+            <u-icon v-else-if="index === 2" name="star" color="#7CB342" size="24"></u-icon>
           </view>
         </view>
       </view>
@@ -56,7 +56,7 @@
             <text class="item-name">{{ user.nickname }}</text>
             <text class="item-points">{{ user.points }} 积分</text>
           </view>
-          <u-icon v-if="user.isCurrentUser" name="arrow-right" color="#2979ff" size="20"></u-icon>
+          <u-icon v-if="user.isCurrentUser" name="arrow-right" color="#AED581" size="20"></u-icon>
           <u-tag v-else text="点击查看" type="info" size="mini"></u-tag>
         </view>
       </view>
@@ -134,7 +134,7 @@ const showUserDetail = (user: any) => {
 const showMyRankDetail = () => {
   uni.showModal({
     title: '我的排名',
-    content: `当前排名: 第${myRank.value}名\n拥有积分: ${catStore.points}\n猫咪等级: ${catStore.level}`,
+    content: `当前排名: 第${myRank.value}名\n拥有总积分: ${catStore.totalPoints}\n猫咪数量: ${catStore.cats.length}`,
     showCancel: false
   })
 }
@@ -159,7 +159,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .ranking-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F9FBE7;
   padding-bottom: 20rpx;
 }
 
@@ -228,15 +228,15 @@ onMounted(() => {
     }
 
     .rank-1 {
-      background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+      background: linear-gradient(135deg, #CDDC39 0%, #B2DBBF 100%);
     }
 
     .rank-2 {
-      background: linear-gradient(135deg, #c0c0c0 0%, #e0e0e0 100%);
+      background: linear-gradient(135deg, #AED581 0%, #81C784 100%);
     }
 
     .rank-3 {
-      background: linear-gradient(135deg, #cd7f32 0%, #d4a574 100%);
+      background: linear-gradient(135deg, #7CB342 0%, #66BB6A 100%);
     }
 
     .user-rank {

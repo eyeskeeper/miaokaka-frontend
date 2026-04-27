@@ -11,18 +11,18 @@
       </view>
       <view class="stats">
         <view class="stat-item">
-          <text class="stat-value">{{ catStore.points }}</text>
-          <text class="stat-label">积分</text>
+          <text class="stat-value">{{ currentCat?.points || 0 }}</text>
+          <u-icon name="integral" color="#fff" size="16"></u-icon>
         </view>
         <view class="stat-divider"></view>
         <view class="stat-item">
           <text class="stat-value">{{ todayCheckInCount }}</text>
-          <text class="stat-label">今日打卡</text>
+          <u-icon name="clock" color="#fff" size="16"></u-icon>
         </view>
         <view class="stat-divider"></view>
         <view class="stat-item">
-          <text class="stat-value">{{ catStore.level }}</text>
-          <text class="stat-label">等级</text>
+          <text class="stat-value">{{ currentCat?.level || 1 }}</text>
+          <u-icon name="star" color="#fff" size="16"></u-icon>
         </view>
       </view>
     </view>
@@ -31,19 +31,19 @@
     <view class="quick-actions">
       <u-grid :border="false" :col="4">
         <u-grid-item @click="goToCheckin">
-          <u-icon name="clock" color="#2979ff" size="40"></u-icon>
+          <u-icon name="clock" color="#CDDC39" size="40"></u-icon>
           <text class="grid-text">打卡</text>
         </u-grid-item>
         <u-grid-item @click="goToCat">
-          <u-icon name="pets" color="#ff9800" size="40"></u-icon>
+          <u-icon name="heart" color="#AED581" size="40"></u-icon>
           <text class="grid-text">猫咪</text>
         </u-grid-item>
         <u-grid-item @click="goToRanking">
-          <u-icon name="list" color="#4cd964" size="40"></u-icon>
+          <u-icon name="list" color="#7CB342" size="40"></u-icon>
           <text class="grid-text">排行</text>
         </u-grid-item>
         <u-grid-item @click="goToProfile">
-          <u-icon name="account" color="#dd524d" size="40"></u-icon>
+          <u-icon name="account" color="#C0CA33" size="40"></u-icon>
           <text class="grid-text">我的</text>
         </u-grid-item>
       </u-grid>
@@ -54,7 +54,7 @@
       <view class="section-header">
         <text class="section-title">今日计划</text>
         <view class="add-btn" @click="showAddPlan = true">
-          <u-icon name="plus" color="#2979ff"></u-icon>
+          <u-icon name="plus" color="#AED581"></u-icon>
         </view>
       </view>
 
@@ -128,6 +128,9 @@ const planForm = ref({
   description: '',
   points: 10
 })
+
+// 当前猫咪
+const currentCat = computed(() => catStore.currentCat)
 
 // 今日打卡数量
 const todayCheckInCount = computed(() => {
@@ -216,6 +219,11 @@ onMounted(() => {
     Object.assign(catStore.$state, savedCat)
   }
 
+  // 如果没有猫咪数据，初始化默认猫咪
+  if (catStore.cats.length === 0) {
+    catStore.initializeDefaultCats()
+  }
+
   // 如果没有数据，初始化默认计划
   if (planStore.todayPlans.length === 0) {
     const defaultPlans: Plan[] = [
@@ -262,12 +270,12 @@ watch(() => catStore.$state, (newVal) => {
 <style lang="scss" scoped>
 .index-container {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: #F9FBE7;
   padding-bottom: 20rpx;
 }
 
 .user-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
   margin: 20rpx;
   padding: 40rpx 30rpx;
   border-radius: 20rpx;
@@ -364,7 +372,7 @@ watch(() => catStore.$state, (newVal) => {
     .add-btn {
       width: 50rpx;
       height: 50rpx;
-      background: #2979ff;
+      background: #AED581;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -418,8 +426,8 @@ watch(() => catStore.$state, (newVal) => {
             transition: all 0.3s;
 
             &.checked {
-              background: #4cd964;
-              border-color: #4cd964;
+              background: #7CB342;
+              border-color: #7CB342;
             }
           }
 

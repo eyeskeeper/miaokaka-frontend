@@ -20,6 +20,12 @@
       }
     },
     {
+      "path": "pages/cat/catDetail",
+      "style": {
+        "navigationBarTitleText": "猫咪详情"
+      }
+    },
+    {
       "path": "pages/checkin/checkin",
       "style": {
         "navigationBarTitleText": "打卡"
@@ -40,7 +46,7 @@
   ],
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#2979ff",
+    "selectedColor": "#AED581",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
@@ -79,7 +85,7 @@
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "每日打卡",
-    "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8"
+    "navigationBarBackgroundColor": "#F9FBE7",
+    "backgroundColor": "#F9FBE7"
   }
 }

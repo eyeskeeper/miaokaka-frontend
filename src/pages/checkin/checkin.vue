@@ -11,8 +11,8 @@
 
         <!-- 打卡状态 -->
         <view class="checkin-status">
-          <u-icon v-if="currentPlan.checked" name="checkbox-mark" color="#4cd964" size="80"></u-icon>
-          <u-icon v-else name="clock" color="#999" size="80"></u-icon>
+          <u-icon v-if="currentPlan.checked" name="checkbox-mark" color="#7CB342" size="80"></u-icon>
+          <u-icon v-else name="clock" color="#CDDC39" size="80"></u-icon>
           <text class="status-text">{{ currentPlan.checked ? '今日已完成' : '待打卡' }}</text>
         </view>
 
@@ -42,10 +42,10 @@
             </view>
             <u-progress
               :percentage="(boss.hp / boss.maxHp) * 100"
-              activeColor="#dd524d"
+              activeColor="#CDDC39"
               :striped="true"
             ></u-progress>
-            <u-icon v-if="boss.defeated" name="checkmark-circle" color="#4cd964" size="24"></u-icon>
+            <u-icon v-if="boss.defeated" name="checkmark-circle" color="#7CB342" size="24"></u-icon>
           </view>
         </view>
       </view>
@@ -134,8 +134,10 @@ const handleCheckIn = async () => {
     const points = planStore.checkIn(planId.value)
 
     if (points > 0) {
-      // 增加猫咪积分
-      catStore.addPoints(points)
+      // 增加当前猫咪积分
+      if (catStore.currentCat) {
+        catStore.addPointsToCat(catStore.currentCat.id, points)
+      }
 
       // 打败所有 Boss
       currentPlan.value.bosses.forEach(boss => {
@@ -193,7 +195,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .checkin-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F9FBE7;
 }
 
 .checkin-content {
@@ -302,7 +304,7 @@ onMounted(() => {
 
       .boss-hp {
         font-size: 24rpx;
-        color: #dd524d;
+        color: #CDDC39;
       }
     }
   }

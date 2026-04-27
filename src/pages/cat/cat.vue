@@ -1,145 +1,222 @@
 <template>
   <view class="cat-container">
-    <!-- 猫咪展示区域 -->
-    <view class="cat-display">
-      <view class="cat-avatar">
-        <u-avatar :src="catAvatar" size="large" shape="square" class="avatar"></u-avatar>
-      </view>
-      <view class="cat-info">
-        <text class="cat-name">{{ catStore.name }}</text>
-        <u-tag :text="'LV.' + catStore.level" type="primary" size="mini" class="level-tag"></u-tag>
-      </view>
-
-      <!-- 经验进度条 -->
-      <view class="exp-section">
-        <view class="exp-info">
-          <text class="exp-text">经验值: {{ catStore.exp }} / {{ catStore.maxExp }}</text>
-          <text class="exp-percent">{{ Math.floor(catStore.levelProgress) }}%</text>
+    <!-- 顶部统计卡片 -->
+    <view class="stats-card">
+      <view class="stat-item">
+        <u-icon name="pets" color="#AED581" size="40"></u-icon>
+        <view class="stat-info">
+          <text class="stat-value">{{ catStore.cats.length }}</text>
+          <text class="stat-label">猫咪数量</text>
         </view>
-        <u-line-progress :percentage="catStore.levelProgress" activeColor="#ff9800" :striped="true"></u-line-progress>
       </view>
-
-      <!-- 积分显示 -->
-      <view class="points-section">
-        <view class="points-card">
-          <u-icon name="integral" color="#ff9800" size="60"></u-icon>
-          <view class="points-info">
-            <text class="points-label">可用积分</text>
-            <text class="points-value">{{ catStore.points }}</text>
-          </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <u-icon name="integral" color="#FFEB3B" size="40"></u-icon>
+        <view class="stat-info">
+          <text class="stat-value">{{ catStore.totalPoints }}</text>
+          <text class="stat-label">总积分</text>
         </view>
       </view>
     </view>
 
-    <!-- 属性面板 -->
-    <view class="attributes-section">
+    <!-- 猫咪列表 -->
+    <view class="cat-list-section">
       <view class="section-header">
-        <text class="section-title">属性面板</text>
-        <u-tag text="升级属性" type="warning" size="mini"></u-tag>
+        <text class="section-title">我的猫咪</text>
+        <view class="add-cat-btn" @click="showAddCatModal = true">
+          <u-icon name="plus" color="#fff" size="20"></u-icon>
+        </view>
       </view>
 
-      <view class="attributes-list">
-        <view class="attribute-item">
-          <view class="attr-left">
-            <u-icon name="man-add" color="#2979ff" size="40"></u-icon>
-            <view class="attr-info">
-              <text class="attr-name">力量</text>
-              <text class="attr-value">{{ catStore.attributes.strength }}</text>
+      <view class="cat-list">
+        <view
+          v-for="cat in catStore.cats"
+          :key="cat.id"
+          class="cat-item"
+          :class="{ 'active': cat.isActive }"
+          @click="goToCatDetail(cat.id)"
+        >
+          <view class="cat-left">
+            <u-avatar :src="getCatAvatar(cat.appearance.color)" size="large" shape="square" class="cat-avatar"></u-avatar>
+            <view class="cat-info">
+              <view class="cat-name-row">
+                <text class="cat-name">{{ cat.name }}</text>
+                <u-tag v-if="cat.isActive" text="当前" type="success" size="mini"></u-tag>
+              </view>
+              <view class="cat-level-row">
+                <text class="cat-level">LV.{{ cat.level }}</text>
+                <text class="cat-points">{{ cat.points }} 积分</text>
+              </view>
             </view>
           </view>
-          <u-button size="mini" type="primary" @click="upgradeAttribute('strength')">
-            +5 (10积分)
-          </u-button>
+          <view class="cat-right">
+            <u-icon name="arrow-right" color="#999" size="24"></u-icon>
+          </view>
         </view>
 
-        <view class="attribute-item">
-          <view class="attr-left">
-            <u-icon name="zap" color="#ff9800" size="40"></u-icon>
-            <view class="attr-info">
-              <text class="attr-name">敏捷</text>
-              <text class="attr-value">{{ catStore.attributes.agility }}</text>
-            </view>
-          </view>
-          <u-button size="mini" type="primary" @click="upgradeAttribute('agility')">
-            +5 (10积分)
-          </u-button>
-        </view>
-
-        <view class="attribute-item">
-          <view class="attr-left">
-            <u-icon name="clock" color="#4cd964" size="40"></u-icon>
-            <view class="attr-info">
-              <text class="attr-name">智力</text>
-              <text class="attr-value">{{ catStore.attributes.intelligence }}</text>
-            </view>
-          </view>
-          <u-button size="mini" type="primary" @click="upgradeAttribute('intelligence')">
-            +5 (10积分)
+        <!-- 空状态 -->
+        <view v-if="catStore.cats.length === 0" class="empty-state">
+          <u-icon name="pets" color="#ddd" size="100"></u-icon>
+          <text class="empty-text">还没有猫咪，添加一只吧~</text>
+          <u-button type="primary" @click="showAddCatModal = true" shape="circle">
+            添加猫咪
           </u-button>
         </view>
       </view>
     </view>
 
-    <!-- 等级奖励预览 -->
-    <view class="rewards-section">
-      <view class="section-header">
-        <text class="section-title">升级奖励</text>
+    <!-- 添加猫咪弹窗 -->
+    <u-popup v-model:show="showAddCatModal" mode="bottom" :round="10">
+      <view class="add-cat-popup">
+        <view class="popup-header">
+          <text class="popup-title">添加新猫咪</text>
+          <u-icon name="close" @click="showAddCatModal = false"></u-icon>
+        </view>
+        <u-form :model="catForm" label-position="top">
+          <u-form-item label="猫咪名字">
+            <u-input v-model="catForm.name" placeholder="给猫咪取个名字"></u-input>
+          </u-form-item>
+          <u-form-item label="猫咪颜色">
+            <u-radio-group v-model="catForm.appearance.color" placement="row">
+              <u-radio
+                v-for="color in catColors"
+                :key="color.value"
+                :name="color.value"
+                :custom-style="{ marginRight: '20rpx' }"
+              >
+                {{ color.label }}
+              </u-radio>
+            </u-radio-group>
+          </u-form-item>
+          <u-form-item label="风格">
+            <u-radio-group v-model="catForm.appearance.style" placement="row">
+              <u-radio
+                v-for="style in catStyles"
+                :key="style.value"
+                :name="style.value"
+                :custom-style="{ marginRight: '20rpx' }"
+              >
+                {{ style.label }}
+              </u-radio>
+            </u-radio-group>
+          </u-form-item>
+        </u-form>
+        <u-button type="primary" @click="handleAddCat" shape="circle">确定添加</u-button>
       </view>
-      <view class="rewards-list">
-        <view class="reward-item">
-          <text class="reward-level">LV.2</text>
-          <text class="reward-desc">获得称号"初级勇士"</text>
-        </view>
-        <view class="reward-item">
-          <text class="reward-level">LV.5</text>
-          <text class="reward-desc">获得称号"中级勇士"</text>
-        </view>
-        <view class="reward-item">
-          <text class="reward-level">LV.10</text>
-          <text class="reward-desc">获得称号"高级勇士"</text>
-        </view>
-      </view>
-    </view>
+    </u-popup>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import { useCatStore } from '@/stores/cat'
+import { ref, onMounted, watch } from 'vue'
+import { useCatStore, type CatAppearance } from '@/stores/cat'
 import { storage } from '@/utils/storage'
 
 const catStore = useCatStore()
 
+const showAddCatModal = ref(false)
+const catForm = ref({
+  name: '',
+  appearance: {
+    color: 'orange',
+    style: 'normal'
+  } as CatAppearance
+})
+
+// 猫咪颜色选项
+const catColors = [
+  { label: '橘色', value: 'orange' },
+  { label: '白色', value: 'white' },
+  { label: '黑色', value: 'black' },
+  { label: '灰色', value: 'gray' }
+]
+
+// 猫咪风格选项
+const catStyles = [
+  { label: '普通', value: 'normal' },
+  { label: '可爱', value: 'cute' },
+  { label: '酷炫', value: 'cool' }
+]
+
 // 根据猫咪颜色选择头像
-const catAvatar = computed(() => {
+const getCatAvatar = (color: string) => {
   const colorMap: Record<string, string> = {
     orange: 'https://web-assets.dcloud.io/unidoc/zh/uni-app/uni-quickstart.png',
     white: 'https://web-assets.dcloud.io/unidoc/zh/uni-app/uni-quickstart.png',
-    black: 'https://web-assets.dcloud.io/unidoc/zh/uni-app/uni-quickstart.png'
+    black: 'https://web-assets.dcloud.io/unidoc/zh/uni-app/uni-quickstart.png',
+    gray: 'https://web-assets.dcloud.io/unidoc/zh/uni-app/uni-quickstart.png'
   }
-  return colorMap[catStore.appearance.color] || colorMap.orange
-})
+  return colorMap[color] || colorMap.orange
+}
 
-// 升级属性
-const upgradeAttribute = (type: 'strength' | 'agility' | 'intelligence') => {
-  const cost = 10
+// 跳转到猫咪详情页
+const goToCatDetail = (catId: string) => {
+  uni.navigateTo({
+    url: `/pages/cat/catDetail?id=${catId}`
+  })
+}
 
-  if (catStore.points < cost) {
+// 添加猫咪
+const handleAddCat = () => {
+  if (!catForm.value.name) {
     uni.showToast({
-      title: '积分不足',
+      title: '请输入猫咪名字',
       icon: 'none'
     })
     return
   }
 
-  const success = catStore.upgradeAttribute(type, cost)
-  if (success) {
-    uni.showToast({
-      title: '升级成功！',
-      icon: 'success'
-    })
+  const newCatId = catStore.addCat({
+    name: catForm.value.name,
+    level: 1,
+    exp: 0,
+    maxExp: 100,
+    points: 0,
+    attributes: {
+      strength: 10,
+      agility: 10,
+      intelligence: 10
+    },
+    appearance: catForm.value.appearance,
+    battles: [],
+    isActive: false
+  })
+
+  uni.showToast({
+    title: '添加成功',
+    icon: 'success'
+  })
+
+  // 重置表单
+  catForm.value = {
+    name: '',
+    appearance: {
+      color: 'orange',
+      style: 'normal'
+    }
   }
+  showAddCatModal.value = false
+
+  // 跳转到新猫咪的详情页
+  setTimeout(() => {
+    goToCatDetail(newCatId)
+  }, 500)
 }
+
+// 初始化
+onMounted(() => {
+  // 从本地存储加载数据
+  const savedCats = storage.get<any>('catStore')
+  if (savedCats) {
+    catStore.cats = savedCats.cats || []
+    catStore.currentCatId = savedCats.currentCatId || ''
+  }
+
+  // 如果没有数据，初始化默认猫咪
+  if (catStore.cats.length === 0) {
+    catStore.initializeDefaultCats()
+  }
+})
 
 // 监听猫咪数据变化并保存
 watch(() => catStore.$state, (newVal) => {
@@ -150,92 +227,51 @@ watch(() => catStore.$state, (newVal) => {
 <style lang="scss" scoped>
 .cat-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F9FBE7;
   padding-bottom: 20rpx;
 }
 
-.cat-display {
-  background: linear-gradient(135deg, #ff9800 0%, #ff6b6b 100%);
+.stats-card {
+  background: linear-gradient(135deg, #CDDC39 0%, #7CB34A 100%);
+  margin: 20rpx;
   padding: 40rpx 30rpx;
-  border-radius: 0 0 40rpx 40rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
   color: #fff;
 
-  .cat-avatar {
-    text-align: center;
-    margin-bottom: 30rpx;
-
-    .avatar {
-      background: #fff;
-      padding: 20rpx;
-    }
-  }
-
-  .cat-info {
+  .stat-item {
+    flex: 1;
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin-bottom: 40rpx;
+    gap: 20rpx;
 
-    .cat-name {
-      font-size: 40rpx;
-      font-weight: bold;
-      margin-right: 20rpx;
-    }
-  }
+    .stat-info {
+      flex: 1;
 
-  .exp-section {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 20rpx;
-    border-radius: 15rpx;
-    margin-bottom: 30rpx;
-
-    .exp-info {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 15rpx;
-
-      .exp-text {
-        font-size: 24rpx;
-      }
-
-      .exp-percent {
-        font-size: 24rpx;
+      .stat-value {
+        display: block;
+        font-size: 48rpx;
         font-weight: bold;
+        margin-bottom: 6rpx;
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 24rpx;
+        opacity: 0.9;
       }
     }
   }
 
-  .points-section {
-    .points-card {
-      background: rgba(255, 255, 255, 0.3);
-      padding: 30rpx;
-      border-radius: 20rpx;
-      display: flex;
-      align-items: center;
-
-      .points-info {
-        margin-left: 30rpx;
-        flex: 1;
-
-        .points-label {
-          display: block;
-          font-size: 24rpx;
-          opacity: 0.9;
-          margin-bottom: 6rpx;
-        }
-
-        .points-value {
-          display: block;
-          font-size: 48rpx;
-          font-weight: bold;
-        }
-      }
-    }
+  .stat-divider {
+    width: 1rpx;
+    height: 60rpx;
+    background: rgba(255, 255, 255, 0.3);
   }
 }
 
-.attributes-section,
-.rewards-section {
+.cat-list-section {
   margin: 20rpx;
 
   .section-header {
@@ -249,75 +285,127 @@ watch(() => catStore.$state, (newVal) => {
       font-weight: bold;
       color: #333;
     }
+
+    .add-cat-btn {
+      width: 60rpx;
+      height: 60rpx;
+      background: #AED581;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 }
 
-.attributes-list {
+.cat-list {
   background: #fff;
   border-radius: 20rpx;
   overflow: hidden;
 
-  .attribute-item {
+  .cat-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 30rpx;
     border-bottom: 1rpx solid #f0f0f0;
+    transition: all 0.3s;
 
     &:last-child {
       border-bottom: none;
     }
 
-    .attr-left {
+    &.active {
+      background: linear-gradient(135deg, rgba(174, 213, 129, 0.1) 0%, rgba(124, 179, 66, 0.1) 100%);
+    }
+
+    &:active {
+      background: #f5f5f5;
+    }
+
+    .cat-left {
       display: flex;
       align-items: center;
+      flex: 1;
 
-      .attr-info {
-        margin-left: 20rpx;
+      .cat-avatar {
+        margin-right: 20rpx;
+      }
 
-        .attr-name {
-          display: block;
-          font-size: 28rpx;
-          color: #333;
+      .cat-info {
+        flex: 1;
+
+        .cat-name-row {
+          display: flex;
+          align-items: center;
+          gap: 10rpx;
           margin-bottom: 6rpx;
+
+          .cat-name {
+            font-size: 30rpx;
+            font-weight: bold;
+            color: #333;
+          }
         }
 
-        .attr-value {
-          display: block;
-          font-size: 24rpx;
-          color: #666;
+        .cat-level-row {
+          display: flex;
+          align-items: center;
+          gap: 20rpx;
+
+          .cat-level {
+            font-size: 24rpx;
+            color: #AED581;
+            font-weight: bold;
+          }
+
+          .cat-points {
+            font-size: 24rpx;
+            color: #999;
+          }
         }
       }
     }
   }
 }
 
-.rewards-list {
-  background: #fff;
-  border-radius: 20rpx;
-  overflow: hidden;
+.empty-state {
+  text-align: center;
+  padding: 80rpx 0;
 
-  .reward-item {
+  .empty-text {
+    display: block;
+    font-size: 26rpx;
+    color: #999;
+    margin: 20rpx 0 40rpx 0;
+  }
+
+  .u-button {
+    width: 200rpx;
+  }
+}
+
+.add-cat-popup {
+  padding: 40rpx;
+
+  .popup-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 30rpx;
-    border-bottom: 1rpx solid #f0f0f0;
+    margin-bottom: 40rpx;
 
-    &:last-child {
-      border-bottom: none;
-    }
-
-    .reward-level {
-      font-size: 28rpx;
+    .popup-title {
+      font-size: 32rpx;
       font-weight: bold;
-      color: #ff9800;
     }
+  }
 
-    .reward-desc {
-      font-size: 26rpx;
-      color: #666;
-    }
+  .u-form-item {
+    margin-bottom: 30rpx;
+  }
+
+  .u-button {
+    margin-top: 40rpx;
   }
 }
 </style>

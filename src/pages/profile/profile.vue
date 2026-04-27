@@ -8,20 +8,20 @@
         <text class="user-phone">{{ userStore.phone || '未绑定手机号' }}</text>
       </view>
       <view class="edit-btn" @click="editProfile">
-        <u-icon name="edit-pen" color="#2979ff" size="24"></u-icon>
+        <u-icon name="edit-pen" color="#C0CA33" size="24"></u-icon>
       </view>
     </view>
 
     <!-- 数据统计 -->
     <view class="stats-section">
       <view class="stat-item">
-        <text class="stat-value">{{ catStore.points }}</text>
-        <text class="stat-label">积分</text>
+        <text class="stat-value">{{ catStore.totalPoints }}</text>
+        <text class="stat-label">总积分</text>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
-        <text class="stat-value">{{ catStore.level }}</text>
-        <text class="stat-label">等级</text>
+        <text class="stat-value">{{ catStore.cats.length }}</text>
+        <text class="stat-label">猫咪数</text>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
@@ -44,7 +44,7 @@
           @click="goToCat"
         >
           <template v-slot:icon>
-            <u-icon name="pets" color="#ff9800" size="24" style="margin-right: 10rpx;"></u-icon>
+            <u-icon name="pets" color="#AED581" size="24" style="margin-right: 10rpx;"></u-icon>
           </template>
         </u-cell>
         <u-cell
@@ -53,7 +53,7 @@
           @click="goToHistory"
         >
           <template v-slot:icon>
-            <u-icon name="clock" color="#2979ff" size="24" style="margin-right: 10rpx;"></u-icon>
+            <u-icon name="clock" color="#CDDC39" size="24" style="margin-right: 10rpx;"></u-icon>
           </template>
         </u-cell>
         <u-cell
@@ -62,7 +62,7 @@
           @click="goToRanking"
         >
           <template v-slot:icon>
-            <u-icon name="list" color="#4cd964" size="24" style="margin-right: 10rpx;"></u-icon>
+            <u-icon name="list" color="#7CB342" size="24" style="margin-right: 10rpx;"></u-icon>
           </template>
         </u-cell>
         <u-cell
@@ -71,7 +71,7 @@
           @click="goToPoints"
         >
           <template v-slot:icon>
-            <u-icon name="integral" color="#dd524d" size="24" style="margin-right: 10rpx;"></u-icon>
+            <u-icon name="integral" color="#FFEB3B" size="24" style="margin-right: 10rpx;"></u-icon>
           </template>
         </u-cell>
       </u-cell-group>
@@ -256,12 +256,12 @@ onMounted(() => {
 <style lang="scss" scoped>
 .profile-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F9FBE7;
   padding-bottom: 20rpx;
 }
 
 .user-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
   padding: 60rpx 40rpx;
   display: flex;
   align-items: center;
@@ -315,7 +315,7 @@ onMounted(() => {
       display: block;
       font-size: 36rpx;
       font-weight: bold;
-      color: #2979ff;
+      color: #AED581;
       margin-bottom: 6rpx;
     }
 
