@@ -31,7 +31,7 @@
       <view class="stat-divider"></view>
       <view class="stat-item">
         <text class="stat-value">{{ totalCheckInCount }}</text>
-        <text class="stat-label">累计打卡</text>
+        <text class="stat-label" @click="goToHistory">累计打卡</text>
       </view>
     </view>
 
@@ -159,9 +159,8 @@ const goToCat = () => {
 
 // 跳转打卡记录
 const goToHistory = () => {
-  uni.showToast({
-    title: '功能开发中',
-    icon: 'none'
+  uni.navigateTo({
+    url: '/pages/checkin/checkinDetail'
   })
 }
 

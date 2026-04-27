@@ -32,6 +32,12 @@
       }
     },
     {
+      "path": "pages/checkin/checkinDetail",
+      "style": {
+        "navigationBarTitleText": "打卡记录"
+      }
+    },
+    {
       "path": "pages/ranking/ranking",
       "style": {
         "navigationBarTitleText": "排行榜"
