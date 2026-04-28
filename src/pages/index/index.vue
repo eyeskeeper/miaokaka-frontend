@@ -29,10 +29,14 @@
 
     <!-- 快捷功能 -->
     <view class="quick-actions">
-      <u-grid :border="false" :col="4">
+      <u-grid :border="false" :col="5">
         <u-grid-item @click="goToCheckin">
           <u-icon name="clock" color="#CDDC39" size="40"></u-icon>
           <text class="grid-text">打卡</text>
+        </u-grid-item>
+        <u-grid-item @click="goToGroup">
+          <u-icon name="man-add" color="#FFEB3B" size="40"></u-icon>
+          <text class="grid-text">小组</text>
         </u-grid-item>
         <u-grid-item @click="goToCat">
           <u-icon name="heart" color="#AED581" size="40"></u-icon>
@@ -148,6 +152,13 @@ const goToCheckin = (planId?: string) => {
       url: '/pages/checkin/checkin'
     })
   }
+}
+
+// 跳转小组页
+const goToGroup = () => {
+  uni.navigateTo({
+    url: '/pages/group/group'
+  })
 }
 
 // 跳转猫咪页

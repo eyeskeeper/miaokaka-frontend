@@ -44,6 +44,13 @@
       }
     },
     {
+      "path": "pages/group/group",
+      "style": {
+        "navigationBarTitleText": "我的小组",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/profile/profile",
       "style": {
         "navigationBarTitleText": "我的"
