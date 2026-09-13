@@ -1,344 +1,298 @@
 <template>
-  <view class="ranking-container">
-    <!-- 用户当前排名展示 -->
-    <view class="my-rank">
-      <view class="my-rank-card" @click="showMyRankDetail">
-        <u-avatar :src="userStore.avatar" size="60" class="rank-avatar"></u-avatar>
+  <view class="ranking">
+    <view class="head pixel-card">
+      <image class="pixelated" src="/static/pixel/icon-trophy.png" />
+      <view class="head-text">
+        <text class="pixel-h2">🏆 全勤连击榜</text>
+        <text class="head-sub">当天全部进行中计划都完成才累计全勤</text>
+      </view>
+    </view>
+
+    <!-- 竖版滚动榜单 -->
+    <view class="list-card pixel-card">
+      <view
+        v-for="item in rankStore.list"
+        :key="item.userId"
+        class="rank-row"
+        :class="[rowClass(item), { me: isMe(item) }]"
+      >
+        <text class="rank-no" :class="noClass(item)">{{ rankLabel(item.rank) }}</text>
+        <view class="rank-avatar" :class="avatarClass(item.rank)">{{ avatarText(item) }}</view>
         <view class="rank-info">
-          <text class="rank-name">{{ userStore.nickname || '喵星人' }}</text>
-          <text class="rank-desc">
-            第 {{ myRank }} 名 · {{ catStore.totalPoints }} 总积分
-          </text>
+          <text class="rank-name">{{ item.userName }}</text>
+          <text v-if="isMe(item)" class="rank-me-tag">（我）</text>
         </view>
-        <u-icon name="arrow-right" color="#999" size="24"></u-icon>
+        <view class="rank-streak">
+          <image class="pixelated" src="/static/pixel/icon-flame.png" />
+          <text>{{ item.currentStreak }} 天</text>
+        </view>
       </view>
+
+      <view v-if="!rankStore.loading && rankStore.list.length === 0" class="list-empty">
+        榜单虚位以待，全勤打卡抢第一！
+      </view>
+      <view v-if="rankStore.loading" class="list-empty">加载中…</view>
     </view>
 
-    <!-- 排行榜 -->
-    <view class="ranking-list">
-      <!-- 前三名特殊展示 -->
-      <view class="top-three">
-        <view
-          v-for="(user, index) in topUsers"
-          :key="user.rank"
-          class="top-user"
-          :class="`rank-${index + 1}`"
-        >
-          <view class="user-rank">
-            <text class="rank-number">{{ user.rank }}</text>
-          </view>
-          <u-avatar :src="user.avatar" size="80" class="top-avatar"></u-avatar>
-          <view class="user-info">
-            <text class="user-name">{{ user.nickname }}</text>
-            <text class="user-points">{{ user.points }} 积分</text>
-          </view>
-          <view class="medal">
-            <u-icon v-if="index === 0" name="star" color="#CDDC39" size="24"></u-icon>
-            <u-icon v-else-if="index === 1" name="star" color="#AED581" size="24"></u-icon>
-            <u-icon v-else-if="index === 2" name="star" color="#7CB342" size="24"></u-icon>
-          </view>
+    <!-- 底部固定：我的排名（后端真实数据，缺字段时退回榜内 userId 匹配） -->
+    <view class="mine-bar">
+      <view v-if="myRankDisplay != null" class="mine-inner pixel-card">
+        <text class="mine-label">我的排名</text>
+        <text class="mine-rank">No.{{ myRankDisplay }}</text>
+        <view class="mine-streak">
+          <image class="pixelated" src="/static/pixel/icon-flame.png" />
+          <text>{{ userStore.currentStreak }} 天</text>
         </view>
       </view>
-
-      <!-- 普通用户列表 -->
-      <view class="normal-rank">
-        <view
-          v-for="user in normalUsers"
-          :key="user.rank"
-          class="rank-item"
-          @click="showUserDetail(user)"
-        >
-          <view class="item-rank">
-            <text class="rank-text">{{ user.rank }}</text>
-          </view>
-          <u-avatar :src="user.avatar" size="50" class="item-avatar"></u-avatar>
-          <view class="item-info">
-            <text class="item-name">{{ user.nickname }}</text>
-            <text class="item-points">{{ user.points }} 积分</text>
-          </view>
-          <u-icon v-if="user.isCurrentUser" name="arrow-right" color="#AED581" size="20"></u-icon>
-          <u-tag v-else text="点击查看" type="info" size="mini"></u-tag>
-        </view>
+      <view v-else class="mine-inner pixel-card mine-miss">
+        <text class="mine-label">我的排名</text>
+        <text class="mine-tip">未进入前 50，继续全勤打卡冲榜！</text>
       </view>
     </view>
-
-    <!-- 加载更多 -->
-    <u-loadmore
-      v-if="hasMore"
-      status="loading"
-      :loading-text="['加载中...']"
-      @loadmore="loadMore"
-    ></u-loadmore>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { useRankStore } from '@/stores/rank'
 import { useUserStore } from '@/stores/user'
-import { useCatStore } from '@/stores/cat'
-import { useRankingStore } from '@/stores/ranking'
-import { storage } from '@/utils/storage'
+import type { RankItemVO } from '@/types/api'
 
+const rankStore = useRankStore()
 const userStore = useUserStore()
-const catStore = useCatStore()
-const rankingStore = useRankingStore()
 
-const page = ref(1)
-const pageSize = 10
-const hasMore = ref(true)
+const myId = computed(() => userStore.userInfo?.id ?? -1)
 
-// 我的排名
-const myRank = computed(() => {
-  return rankingStore.currentRank || rankingStore.ranks.findIndex(r => r.userId === userStore.userId) + 1 || 100
+const isMe = (item: RankItemVO) => item.userId === myId.value
+
+/** 我的排名展示值：优先后端 myRank 字段，缺字段时退回榜内 userId 匹配（兼容旧后端） */
+const myRankDisplay = computed<number | null>(() => {
+  if (rankStore.myRank != null) return rankStore.myRank
+  return rankStore.list.find((r) => r.userId === myId.value)?.rank ?? null
 })
 
-// 前三名用户
-const topUsers = computed(() => {
-  return rankingStore.ranks.slice(0, 3)
-})
+const rankLabel = (rank: number) => (rank <= 3 ? `No.${rank}` : String(rank))
 
-// 普通用户列表
-const normalUsers = computed(() => {
-  return rankingStore.ranks.slice(3, 10).map(user => ({
-    ...user,
-    isCurrentUser: user.userId === userStore.userId
-  }))
-})
+const rowClass = (item: RankItemVO) =>
+  ({ 1: 'top-1', 2: 'top-2', 3: 'top-3' } as Record<number, string>)[item.rank] ?? ''
 
-// 加载排行榜数据
-const loadRanking = async () => {
-  await rankingStore.fetchRanking()
-}
+const noClass = (item: RankItemVO) => rowClass(item)
 
-// 加载更多
-const loadMore = () => {
-  // 模拟加载更多数据
-  page.value++
-  setTimeout(() => {
-    if (page.value > 2) {
-      hasMore.value = false
-    }
-  }, 1000)
-}
+const avatarClass = (rank: number) =>
+  ({ 1: 'av-1', 2: 'av-2', 3: 'av-3' } as Record<number, string>)[rank] ?? ''
 
-// 显示用户详情
-const showUserDetail = (user: any) => {
-  uni.showModal({
-    title: user.nickname,
-    content: `排名: 第${user.rank}名\n积分: ${user.points}`,
-    showCancel: false
-  })
-}
+const avatarText = (item: RankItemVO) => (item.userName || '喵').slice(0, 1)
 
-// 显示我的排名详情
-const showMyRankDetail = () => {
-  uni.showModal({
-    title: '我的排名',
-    content: `当前排名: 第${myRank.value}名\n拥有总积分: ${catStore.totalPoints}\n猫咪数量: ${catStore.cats.length}`,
-    showCancel: false
-  })
-}
-
-onMounted(() => {
-  // 加载排行榜数据
-  loadRanking()
-
-  // 加载用户数据
-  const savedUserInfo = storage.get<any>('userInfo')
-  if (savedUserInfo) {
-    Object.assign(userStore.$state, savedUserInfo)
-  }
-
-  const savedCat = storage.get<any>('catStore')
-  if (savedCat) {
-    Object.assign(catStore.$state, savedCat)
-  }
+onShow(() => {
+  rankStore.fetchRank()
 })
 </script>
 
 <style lang="scss" scoped>
-.ranking-container {
-  min-height: 100vh;
-  background: #F9FBE7;
-  padding-bottom: 20rpx;
+.ranking {
+  padding: 24rpx 24rpx 180rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
-.my-rank {
-  background: #fff;
-  margin: 20rpx;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+.head {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background: $pixel-purple;
 
-  .my-rank-card {
+  image {
+    width: 72rpx;
+    height: 72rpx;
+  }
+
+  .head-sub {
+    display: block;
+    margin-top: 6rpx;
+    font-size: 20rpx;
+    color: rgba(255, 251, 239, 0.85);
+  }
+}
+
+.list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  @include pixel-block;
+  background: $pixel-card;
+  padding: 18rpx 20rpx;
+
+  &.top-1 {
+    background: $pixel-yellow;
+  }
+
+  &.top-2 {
+    background: #eceaf2;
+  }
+
+  &.top-3 {
+    background: #f3ddc0;
+  }
+
+  &.me {
+    border: 4rpx solid $pixel-primary;
+  }
+
+  .rank-no {
+    width: 64rpx;
+    text-align: center;
+    font-size: 30rpx;
+    font-weight: 900;
+    color: $pixel-ink-light;
+    flex-shrink: 0;
+
+    &.top-1 {
+      color: $pixel-primary-dark;
+    }
+
+    &.top-2 {
+      color: #8a8798;
+    }
+
+    &.top-3 {
+      color: #b07b3e;
+    }
+  }
+
+  .rank-avatar {
+    width: 72rpx;
+    height: 72rpx;
+    @include pixel-card($pixel-card-alt);
+    border-width: 3rpx;
+    box-shadow: none;
     display: flex;
     align-items: center;
-    padding: 20rpx;
-    border-radius: 15rpx;
-    transition: all 0.3s;
+    justify-content: center;
+    font-size: 32rpx;
+    font-weight: 900;
+    color: $pixel-ink;
+    flex-shrink: 0;
 
-    &:active {
-      background: #f5f5f5;
+    &.av-1 {
+      background: $pixel-yellow;
     }
 
-    .rank-avatar {
-      margin-right: 20rpx;
+    &.av-2 {
+      background: #eceaf2;
     }
 
-    .rank-info {
-      flex: 1;
+    &.av-3 {
+      background: #f3ddc0;
+    }
+  }
 
-      .rank-name {
-        display: block;
-        font-size: 30rpx;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 6rpx;
-      }
+  .rank-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6rpx;
 
-      .rank-desc {
-        display: block;
-        font-size: 24rpx;
-        color: #666;
-      }
+    .rank-name {
+      font-size: 28rpx;
+      font-weight: 800;
+      color: $pixel-ink;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rank-me-tag {
+      font-size: 22rpx;
+      font-weight: 800;
+      color: $pixel-primary-dark;
+      flex-shrink: 0;
+    }
+  }
+
+  .rank-streak {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    font-size: 26rpx;
+    font-weight: 900;
+    color: $pixel-green-dark;
+    flex-shrink: 0;
+
+    image {
+      width: 30rpx;
+      height: 30rpx;
     }
   }
 }
 
-.ranking-list {
-  margin: 20rpx;
+.list-empty {
+  text-align: center;
+  font-size: 24rpx;
+  color: $pixel-ink-light;
+  padding: 24rpx 0;
 }
 
-.top-three {
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 40rpx 30rpx;
-  margin-bottom: 30rpx;
+/* 底部固定我的排名 */
+.mine-bar {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(24rpx + env(safe-area-inset-bottom));
+  z-index: 10;
+}
 
-  .top-user {
+.mine-inner {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx;
+  background: $pixel-yellow;
+
+  .mine-label {
+    font-size: 24rpx;
+    font-weight: 700;
+    color: rgba(74, 55, 40, 0.7);
+  }
+
+  .mine-rank {
+    flex: 1;
+    font-size: 40rpx;
+    font-weight: 900;
+    color: $pixel-primary-dark;
+  }
+
+  .mine-streak {
     display: flex;
     align-items: center;
-    padding: 30rpx;
-    border-radius: 15rpx;
-    margin-bottom: 20rpx;
-    transition: all 0.3s;
+    gap: 8rpx;
+    font-size: 28rpx;
+    font-weight: 900;
+    color: $pixel-ink;
 
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    .rank-1 {
-      background: linear-gradient(135deg, #CDDC39 0%, #B2DBBF 100%);
-    }
-
-    .rank-2 {
-      background: linear-gradient(135deg, #AED581 0%, #81C784 100%);
-    }
-
-    .rank-3 {
-      background: linear-gradient(135deg, #7CB342 0%, #66BB6A 100%);
-    }
-
-    .user-rank {
-      width: 60rpx;
-      height: 60rpx;
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 20rpx;
-
-      .rank-number {
-        font-size: 28rpx;
-        font-weight: bold;
-        color: #333;
-      }
-    }
-
-    .top-avatar {
-      margin-right: 20rpx;
-    }
-
-    .user-info {
-      flex: 1;
-
-      .user-name {
-        display: block;
-        font-size: 32rpx;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 6rpx;
-      }
-
-      .user-points {
-        display: block;
-        font-size: 24rpx;
-        color: #666;
-      }
-    }
-
-    .medal {
-      margin-left: 20rpx;
+    image {
+      width: 32rpx;
+      height: 32rpx;
     }
   }
-}
 
-.normal-rank {
-  background: #fff;
-  border-radius: 20rpx;
-  overflow: hidden;
+  .mine-tip {
+    flex: 1;
+    font-size: 24rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
 
-  .rank-item {
-    display: flex;
-    align-items: center;
-    padding: 30rpx;
-    border-bottom: 1rpx solid #f0f0f0;
-
-    &:last-child {
-      border-bottom: none;
-    }
-
-    &:active {
-      background: #f5f5f5;
-    }
-
-    .item-rank {
-      width: 50rpx;
-      height: 50rpx;
-      background: #f0f0f0;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 20rpx;
-
-      .rank-text {
-        font-size: 24rpx;
-        color: #666;
-      }
-    }
-
-    .item-avatar {
-      margin-right: 20rpx;
-    }
-
-    .item-info {
-      flex: 1;
-
-      .item-name {
-        display: block;
-        font-size: 28rpx;
-        color: #333;
-        margin-bottom: 6rpx;
-      }
-
-      .item-points {
-        display: block;
-        font-size: 24rpx;
-        color: #666;
-      }
-    }
+  &.mine-miss {
+    background: $pixel-card-alt;
   }
 }
 </style>

@@ -1,267 +1,223 @@
 <template>
-  <view class="login-container">
-    <!-- Logo区域 -->
-    <view class="logo-section">
-      <u-image src="/static/logo.png" mode="aspectFit" width="120" height="120" class="logo"></u-image>
-      <text class="app-title">每日打卡</text>
-      <text class="app-subtitle">和你的猫咪一起养成好习惯</text>
+  <view class="login-page">
+    <!-- 顶部 LOGO -->
+    <view class="logo-area">
+      <image class="pixelated logo-cat" src="/static/pixel/cat-orange-idle.png" mode="aspectFit" />
+      <text class="app-name">{{ APP_NAME }}</text>
+      <text class="app-slogan">打卡喂猫 · 习惯死斗</text>
     </view>
 
-    <!-- 登录表单 -->
-    <view class="form-section">
-      <u-form :model="formData" ref="uForm">
-        <u-form-item prop="phone">
-          <u-input
-            v-model="formData.phone"
-            placeholder="请输入手机号"
-            prefix-icon="phone"
-            clearable
-          ></u-input>
-        </u-form-item>
-        <u-form-item prop="password">
-          <u-input
-            v-model="formData.password"
-            placeholder="请输入密码"
-            prefix-icon="lock"
-            type="password"
-            clearable
-          ></u-input>
-        </u-form-item>
-      </u-form>
-
-      <u-button type="primary" @click="handleLogin" :loading="loading" shape="circle">
-        登录
-      </u-button>
-
-      <u-divider>或</u-divider>
-
-      <u-button
-        type="info"
-        @click="handleWechatLogin"
-        shape="circle"
-        open-type="getUserInfo"
-        @getuserinfo="handleWechatUserInfo"
-      >
-        微信一键登录
-      </u-button>
+    <!-- 模式切换 -->
+    <view class="mode-switch">
+      <view class="mode-item" :class="{ active: mode === 'login' }" @tap="switchMode('login')">登 录</view>
+      <view class="mode-item" :class="{ active: mode === 'register' }" @tap="switchMode('register')">注 册</view>
     </view>
 
-    <!-- 用户协议 -->
-    <view class="agreement">
-      <u-checkbox v-model="agreement"></u-checkbox>
-      <text class="agreement-text">我已阅读并同意</text>
-      <text class="agreement-link">《用户协议》</text>
-      <text class="agreement-text">和</text>
-      <text class="agreement-link">《隐私政策》</text>
+    <!-- 表单 -->
+    <view class="form-card pixel-card">
+      <view class="form-item">
+        <text class="form-label">账号</text>
+        <input
+          v-model="userAccount"
+          class="pixel-input"
+          placeholder="4~32 位账号"
+          placeholder-class="pixel-placeholder"
+          :maxlength="32"
+        />
+      </view>
+      <view class="form-item">
+        <text class="form-label">密码</text>
+        <input
+          v-model="userPassword"
+          class="pixel-input"
+          type="password"
+          placeholder="至少 8 位密码"
+          placeholder-class="pixel-placeholder"
+          :maxlength="32"
+        />
+      </view>
+      <view v-if="mode === 'register'" class="form-item">
+        <text class="form-label">确认密码</text>
+        <input
+          v-model="checkPassword"
+          class="pixel-input"
+          type="password"
+          placeholder="再输入一次密码"
+          placeholder-class="pixel-placeholder"
+          :maxlength="32"
+        />
+      </view>
+
+      <button class="pixel-btn submit-btn" :loading="submitting" @tap="handleSubmit">
+        {{ mode === 'login' ? '进 入' : '注 册 并 登 录' }}
+      </button>
     </view>
+
+    <text class="foot-tip">注册即送 1000 喵币，快来领养你的猫精灵！</text>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { ref } from 'vue'
+import { APP_NAME } from '@/config'
 import { useUserStore } from '@/stores/user'
-import { storage } from '@/utils/storage'
 
 const userStore = useUserStore()
 
-const loading = ref(false)
-const agreement = ref(false)
-const uForm = ref(null)
+const mode = ref<'login' | 'register'>('login')
+const userAccount = ref('')
+const userPassword = ref('')
+const checkPassword = ref('')
+const submitting = ref(false)
 
-const formData = reactive({
-  phone: '',
-  password: ''
+onShow(() => {
+  // 已登录直接进首页
+  if (userStore.isLoggedIn) {
+    uni.switchTab({ url: '/pages/index/index' })
+  }
 })
 
-// 表单验证规则
-const rules = {
-  phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
-  ]
+function switchMode(m: 'login' | 'register') {
+  mode.value = m
 }
 
-// 手机号登录
-const handleLogin = async () => {
-  if (!agreement.value) {
-    uni.showToast({
-      title: '请先同意用户协议',
-      icon: 'none'
-    })
+function validate(): string | null {
+  if (userAccount.value.trim().length < 4) return '账号至少 4 位'
+  if (userPassword.value.length < 8) return '密码至少 8 位'
+  if (mode.value === 'register' && checkPassword.value !== userPassword.value) return '两次密码不一致'
+  return null
+}
+
+async function handleSubmit() {
+  if (submitting.value) return
+  const err = validate()
+  if (err) {
+    uni.showToast({ title: err, icon: 'none' })
     return
   }
-
-  loading.value = true
-
+  submitting.value = true
   try {
-    // 表单验证
-    // @ts-ignore
-    await uForm.value.validate()
-
-    // 模拟登录请求
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // 登录成功
-    userStore.setUserInfo({
-      userId: '1',
-      nickname: '喵星人',
-      avatar: '',
-      phone: formData.phone,
-      isLoggedIn: true,
-      token: 'mock_token'
-    })
-
-    // 保存到本地存储
-    storage.set('userInfo', userStore.$state)
-
-    uni.showToast({
-      title: '登录成功',
-      icon: 'success'
-    })
-
-    // 跳转到首页
-    setTimeout(() => {
-      uni.switchTab({
-        url: '/pages/index/index'
-      })
-    }, 1500)
-
-  } catch (error) {
-    console.error('登录失败:', error)
-    uni.showToast({
-      title: '登录失败',
-      icon: 'none'
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-// 微信登录
-const handleWechatLogin = () => {
-  uni.getUserProfile({
-    desc: '用于完善会员资料',
-    success: (res) => {
-      handleWechatUserInfo(res)
-    },
-    fail: (err) => {
-      console.log('用户拒绝授权:', err)
+    if (mode.value === 'register') {
+      await userStore.register(userAccount.value.trim(), userPassword.value, checkPassword.value)
+      uni.showToast({ title: '注册成功', icon: 'success' })
     }
-  })
-}
-
-// 微信用户信息回调
-const handleWechatUserInfo = (res: any) => {
-  if (!agreement.value) {
-    uni.showToast({
-      title: '请先同意用户协议',
-      icon: 'none'
-    })
-    return
-  }
-
-  loading.value = true
-
-  try {
-    // 模拟微信登录
-    setTimeout(() => {
-      userStore.setUserInfo({
-        userId: 'wx_' + Date.now(),
-        nickname: res.userInfo?.nickName || '微信用户',
-        avatar: res.userInfo?.avatarUrl || '',
-        phone: '',
-        isLoggedIn: true,
-        token: 'wx_mock_token'
-      })
-
-      storage.set('userInfo', userStore.$state)
-
-      uni.showToast({
-        title: '登录成功',
-        icon: 'success'
-      })
-
-      setTimeout(() => {
-        uni.switchTab({
-          url: '/pages/index/index'
-        })
-      }, 1500)
-    }, 1000)
-
-  } catch (error) {
-    console.error('微信登录失败:', error)
-    uni.showToast({
-      title: '登录失败',
-      icon: 'none'
-    })
+    await userStore.login(userAccount.value.trim(), userPassword.value)
+    uni.reLaunch({ url: '/pages/index/index' })
+  } catch {
+    // 错误 toast 已由 request 统一处理
   } finally {
-    loading.value = false
+    submitting.value = false
   }
 }
 </script>
 
 <style lang="scss" scoped>
-.login-container {
+.login-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
-  padding: 60rpx 40rpx;
+  padding: 100rpx 48rpx 60rpx;
+  display: flex;
+  flex-direction: column;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 38rpx, rgba(74, 55, 40, 0.04) 38rpx 40rpx),
+    repeating-linear-gradient(90deg, transparent 0 38rpx, rgba(74, 55, 40, 0.04) 38rpx 40rpx),
+    $pixel-bg;
 }
 
-.logo-section {
-  text-align: center;
-  margin-bottom: 100rpx;
+.logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 64rpx;
 
-  .logo {
-    margin-bottom: 30rpx;
+  .logo-cat {
+    width: 192rpx;
+    height: 192rpx;
   }
 
-  .app-title {
-    display: block;
-    font-size: 48rpx;
-    font-weight: bold;
-    color: #fff;
-    margin-bottom: 20rpx;
+  .app-name {
+    margin-top: 16rpx;
+    font-size: 56rpx;
+    font-weight: 900;
+    letter-spacing: 8rpx;
+    color: $pixel-ink;
+    text-shadow: 4rpx 4rpx 0 $pixel-yellow;
   }
 
-  .app-subtitle {
-    display: block;
-    font-size: 28rpx;
-    color: rgba(255, 255, 255, 0.8);
-  }
-}
-
-.form-section {
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 40rpx;
-  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.1);
-}
-
-.u-button {
-  margin-top: 30rpx;
-  margin-bottom: 30rpx;
-}
-
-.u-divider {
-  margin: 30rpx 0;
-}
-
-.agreement {
-  text-align: center;
-  margin-top: 40rpx;
-  color: #666;
-
-  .agreement-text {
+  .app-slogan {
+    margin-top: 12rpx;
     font-size: 24rpx;
+    color: $pixel-ink-light;
+    letter-spacing: 4rpx;
+  }
+}
+
+.mode-switch {
+  display: flex;
+  margin-bottom: -4rpx;
+  position: relative;
+  z-index: 1;
+  padding: 0 24rpx;
+
+  .mode-item {
+    @include pixel-btn($pixel-card-alt, $pixel-ink-light);
+    height: 72rpx;
+    flex: 1;
+    font-size: 28rpx;
+    box-shadow: none;
+
+    &.active {
+      background: $pixel-yellow;
+      color: $pixel-ink;
+    }
+  }
+}
+
+.form-card {
+  position: relative;
+  z-index: 0;
+}
+
+.form-item {
+  margin-bottom: 28rpx;
+
+  &:last-of-type {
+    margin-bottom: 40rpx;
   }
 
-  .agreement-link {
-    color: #AED581;
-    text-decoration: underline;
+  .form-label {
+    display: block;
+    font-size: 24rpx;
+    font-weight: 800;
+    color: $pixel-ink;
+    margin-bottom: 10rpx;
   }
+
+  .pixel-input {
+    @include pixel-block;
+    height: 84rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+.pixel-placeholder {
+  color: $uni-text-color-placeholder;
+}
+
+.submit-btn {
+  width: 100%;
+}
+
+.foot-tip {
+  margin-top: auto;
+  padding-top: 48rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: $pixel-ink-light;
 }
 </style>

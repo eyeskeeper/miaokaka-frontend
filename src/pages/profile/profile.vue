@@ -1,355 +1,230 @@
 <template>
-  <view class="profile-container">
-    <!-- 用户信息头部 -->
-    <view class="user-header">
-      <u-avatar :src="userStore.avatar" size="100" class="user-avatar"></u-avatar>
+  <view class="profile">
+    <!-- 用户卡 -->
+    <view class="user-card pixel-card">
+      <view class="avatar">{{ userStore.displayName.slice(0, 1) }}</view>
       <view class="user-info">
-        <text class="user-name">{{ userStore.nickname || '喵星人' }}</text>
-        <text class="user-phone">{{ userStore.phone || '未绑定手机号' }}</text>
+        <text class="user-name">{{ userStore.displayName }}</text>
+        <text class="user-account">@{{ userStore.userInfo?.userAccount || '' }}</text>
       </view>
-      <view class="edit-btn" @click="editProfile">
-        <u-icon name="edit-pen" color="#C0CA33" size="24"></u-icon>
-      </view>
-    </view>
-
-    <!-- 数据统计 -->
-    <view class="stats-section">
-      <view class="stat-item">
-        <text class="stat-value">{{ catStore.totalPoints }}</text>
-        <text class="stat-label">总积分</text>
-      </view>
-      <view class="stat-divider"></view>
-      <view class="stat-item">
-        <text class="stat-value">{{ catStore.cats.length }}</text>
-        <text class="stat-label">猫咪数</text>
-      </view>
-      <view class="stat-divider"></view>
-      <view class="stat-item">
-        <text class="stat-value">{{ todayCheckInCount }}</text>
-        <text class="stat-label">今日打卡</text>
-      </view>
-      <view class="stat-divider"></view>
-      <view class="stat-item">
-        <text class="stat-value">{{ totalCheckInCount }}</text>
-        <text class="stat-label" @click="goToHistory">累计打卡</text>
+      <view class="user-stats">
+        <view class="us" @tap="goWallet">
+          <text class="us-num">{{ userStore.totalPoints }}</text>
+          <text class="us-label">喵币</text>
+        </view>
+        <view class="us">
+          <text class="us-num">{{ userStore.currentStreak }}</text>
+          <text class="us-label">全勤连击</text>
+        </view>
+        <view class="us">
+          <text class="us-num">{{ planStore.cats.length }}</text>
+          <text class="us-label">猫口</text>
+        </view>
       </view>
     </view>
 
-    <!-- 功能列表 -->
-    <view class="function-list">
-      <u-cell-group>
-        <u-cell
-          title="我的猫咪"
-          is-link
-          @click="goToCat"
-        >
-          <template v-slot:icon>
-            <u-icon name="pets" color="#AED581" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-        <u-cell
-          title="打卡记录"
-          is-link
-          @click="goToHistory"
-        >
-          <template v-slot:icon>
-            <u-icon name="clock" color="#CDDC39" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-        <u-cell
-          title="我的排名"
-          is-link
-          @click="goToRanking"
-        >
-          <template v-slot:icon>
-            <u-icon name="list" color="#7CB342" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-        <u-cell
-          title="积分明细"
-          is-link
-          @click="goToPoints"
-        >
-          <template v-slot:icon>
-            <u-icon name="integral" color="#FFEB3B" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-      </u-cell-group>
-
-      <u-cell-group style="margin-top: 20rpx;">
-        <u-cell
-          title="个人设置"
-          is-link
-          @click="goToSettings"
-        >
-          <template v-slot:icon>
-            <u-icon name="setting" color="#909399" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-        <u-cell
-          title="关于我们"
-          is-link
-          @click="goToAbout"
-        >
-          <template v-slot:icon>
-            <u-icon name="info-circle" color="#909399" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-        <u-cell
-          title="帮助与反馈"
-          is-link
-          @click="goToHelp"
-        >
-          <template v-slot:icon>
-            <u-icon name="question-circle" color="#909399" size="24" style="margin-right: 10rpx;"></u-icon>
-          </template>
-        </u-cell>
-      </u-cell-group>
+    <!-- 功能入口 -->
+    <view class="menu pixel-card">
+      <view class="menu-row" @tap="goWallet">
+        <text class="menu-icon">🪙</text>
+        <text class="menu-text">喵币钱包</text>
+        <text class="menu-arrow">▶</text>
+      </view>
+      <view class="menu-row" @tap="goRanking">
+        <text class="menu-icon">🏆</text>
+        <text class="menu-text">全勤排行榜</text>
+        <text class="menu-arrow">▶</text>
+      </view>
+      <view class="menu-row" @tap="goDen">
+        <text class="menu-icon">🏠</text>
+        <text class="menu-text">我的猫窝</text>
+        <text class="menu-arrow">▶</text>
+      </view>
     </view>
 
-    <!-- 退出登录按钮 -->
-    <view class="logout-section">
-      <u-button type="error" size="large" @click="handleLogout" shape="circle">
-        退出登录
-      </u-button>
+    <!-- 其他 -->
+    <view class="menu pixel-card">
+      <view class="menu-row" @tap="showAbout">
+        <text class="menu-icon">ℹ️</text>
+        <text class="menu-text">关于 {{ APP_NAME }}</text>
+        <text class="menu-arrow">▶</text>
+      </view>
+      <view class="menu-row logout" @tap="confirmLogout">
+        <text class="menu-icon">🚪</text>
+        <text class="menu-text logout-text">退出登录</text>
+        <text class="menu-arrow">▶</text>
+      </view>
     </view>
 
-    <!-- 版本信息 -->
-    <view class="version-info">
-      <text>每日打卡 v1.0.0</text>
-    </view>
+    <text class="foot">{{ APP_NAME }} · 打卡喂猫，习惯成自然</text>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
-import { useCatStore } from '@/stores/cat'
+import { onShow } from '@dcloudio/uni-app'
+import { APP_NAME } from '@/config'
 import { usePlanStore } from '@/stores/plan'
-import { storage } from '@/utils/storage'
+import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
-const catStore = useCatStore()
 const planStore = usePlanStore()
 
-// 今日打卡数量
-const todayCheckInCount = computed(() => {
-  return planStore.todayPlans.filter(p => p.checked).length
+onShow(() => {
+  if (!userStore.isLoggedIn) {
+    uni.reLaunch({ url: '/pages/login/login' })
+    return
+  }
+  userStore.fetchMe()
+  planStore.fetchPlans()
 })
 
-// 累计打卡数量
-const totalCheckInCount = computed(() => {
-  return 28 // 模拟累计打卡数据
-})
-
-// 编辑个人资料
-const editProfile = () => {
-  uni.showToast({
-    title: '功能开发中',
-    icon: 'none'
-  })
+function goWallet() {
+  uni.navigateTo({ url: '/pages/wallet/wallet' })
 }
 
-// 跳转猫咪页
-const goToCat = () => {
-  uni.switchTab({
-    url: '/pages/cat/cat'
-  })
+function goRanking() {
+  uni.navigateTo({ url: '/pages/ranking/ranking' })
 }
 
-// 跳转打卡记录
-const goToHistory = () => {
-  uni.navigateTo({
-    url: '/pages/checkin/checkinDetail'
-  })
+function goDen() {
+  uni.switchTab({ url: '/pages/cat/den' })
 }
 
-// 跳转排行榜
-const goToRanking = () => {
-  uni.switchTab({
-    url: '/pages/ranking/ranking'
-  })
-}
-
-// 跳转积分明细
-const goToPoints = () => {
-  uni.showToast({
-    title: '功能开发中',
-    icon: 'none'
-  })
-}
-
-// 跳转设置
-const goToSettings = () => {
-  uni.showToast({
-    title: '功能开发中',
-    icon: 'none'
-  })
-}
-
-// 跳转关于
-const goToAbout = () => {
+function showAbout() {
   uni.showModal({
-    title: '关于我们',
-    content: '每日打卡是一款游戏化的习惯养成应用，帮助你和你的猫咪一起养成好习惯！',
+    title: APP_NAME,
+    content: '打卡 + 猫咪养成 + 习惯死斗。每建一个计划领养一只猫精灵，打卡打 BOSS 赚喵币，押金死斗和好友互卷！',
     showCancel: false
   })
 }
 
-// 跳转帮助
-const goToHelp = () => {
-  uni.showToast({
-    title: '功能开发中',
-    icon: 'none'
-  })
-}
-
-// 退出登录
-const handleLogout = () => {
+function confirmLogout() {
   uni.showModal({
-    title: '提示',
-    content: '确定要退出登录吗？',
+    title: '退出登录',
+    content: '确定要退出当前账号吗？',
+    confirmColor: '#D95763',
     success: (res) => {
-      if (res.confirm) {
-        // 清除登录状态
-        userStore.logout()
-
-        // 清除本地存储
-        storage.remove('userInfo')
-
-        uni.showToast({
-          title: '已退出登录',
-          icon: 'success'
-        })
-
-        // 跳转到登录页
-        setTimeout(() => {
-          uni.reLaunch({
-            url: '/pages/login/login'
-          })
-        }, 1500)
-      }
+      if (res.confirm) userStore.logout()
     }
   })
 }
-
-onMounted(() => {
-  // 加载用户数据
-  const savedUserInfo = storage.get<any>('userInfo')
-  if (savedUserInfo) {
-    Object.assign(userStore.$state, savedUserInfo)
-  }
-
-  const savedCat = storage.get<any>('catStore')
-  if (savedCat) {
-    Object.assign(catStore.$state, savedCat)
-  }
-
-  const savedPlans = storage.get<any[]>('todayPlans')
-  if (savedPlans) {
-    planStore.todayPlans = savedPlans
-  }
-})
 </script>
 
 <style lang="scss" scoped>
-.profile-container {
-  min-height: 100vh;
-  background: #F9FBE7;
-  padding-bottom: 20rpx;
+.profile {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
-.user-header {
-  background: linear-gradient(135deg, #CDDC39 0%, #8BC34A 100%);
-  padding: 60rpx 40rpx;
+.user-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  color: #fff;
+  padding: 40rpx 24rpx;
+  background: $pixel-green;
 
-  .user-avatar {
-    margin-right: 30rpx;
-  }
-
-  .user-info {
-    flex: 1;
-
-    .user-name {
-      display: block;
-      font-size: 36rpx;
-      font-weight: bold;
-      margin-bottom: 10rpx;
-    }
-
-    .user-phone {
-      display: block;
-      font-size: 26rpx;
-      opacity: 0.9;
-    }
-  }
-
-  .edit-btn {
-    width: 60rpx;
-    height: 60rpx;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
+  .avatar {
+    width: 128rpx;
+    height: 128rpx;
+    @include pixel-card(#fff);
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-}
-
-.stats-section {
-  display: flex;
-  background: #fff;
-  margin: 20rpx;
-  padding: 40rpx 30rpx;
-  border-radius: 20rpx;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
-
-  .stat-item {
-    flex: 1;
-    text-align: center;
-
-    .stat-value {
-      display: block;
-      font-size: 36rpx;
-      font-weight: bold;
-      color: #AED581;
-      margin-bottom: 6rpx;
-    }
-
-    .stat-label {
-      display: block;
-      font-size: 24rpx;
-      color: #999;
-    }
+    font-size: 56rpx;
+    font-weight: 900;
+    color: $pixel-green-dark;
   }
 
-  .stat-divider {
-    width: 1rpx;
-    background: #f0f0f0;
+  .user-info {
+    margin-top: 16rpx;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-}
 
-.function-list {
-  margin: 20rpx;
-}
+  .user-name {
+    font-size: 34rpx;
+    font-weight: 900;
+    color: $pixel-ink;
+  }
 
-.logout-section {
-  margin: 40rpx 20rpx;
+  .user-account {
+    margin-top: 4rpx;
+    font-size: 22rpx;
+    color: rgba(74, 55, 40, 0.6);
+  }
 
-  .u-button {
+  .user-stats {
+    display: flex;
+    gap: 20rpx;
+    margin-top: 28rpx;
     width: 100%;
   }
+
+  .us {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    @include pixel-block;
+    background: rgba(255, 251, 239, 0.9);
+    padding: 14rpx 0;
+
+    .us-num {
+      font-size: 32rpx;
+      font-weight: 900;
+      color: $pixel-ink;
+    }
+
+    .us-label {
+      font-size: 18rpx;
+      color: $pixel-ink-light;
+    }
+  }
 }
 
-.version-info {
-  text-align: center;
-  padding: 20rpx 0;
+.menu {
+  padding: 8rpx 24rpx;
 
-  text {
-    font-size: 24rpx;
-    color: #999;
+  .menu-row {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+    padding: 28rpx 0;
+    border-bottom: 3rpx solid $pixel-card-alt;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .menu-icon {
+      font-size: 32rpx;
+    }
+
+    .menu-text {
+      flex: 1;
+      font-size: 28rpx;
+      font-weight: 700;
+      color: $pixel-ink;
+    }
+
+    .logout-text {
+      color: $pixel-red;
+    }
+
+    .menu-arrow {
+      font-size: 20rpx;
+      color: $pixel-ink-light;
+    }
   }
+}
+
+.foot {
+  margin-top: 8rpx;
+  text-align: center;
+  font-size: 20rpx;
+  color: $pixel-ink-light;
 }
 </style>
