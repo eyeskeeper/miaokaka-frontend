@@ -31,52 +31,53 @@
 
     <!-- 计划列表 -->
     <view class="plan-list">
-      <view
-        v-for="plan in planStore.plans"
-        :key="plan.id"
-        class="plan-group"
-      >
+      <view v-for="plan in planStore.plans" :key="plan.id" class="plan-group">
         <view class="plan-card pixel-card" :class="{ paused: plan.status !== 0 }" @tap="goDetail(plan.id)">
           <view class="plan-top">
-          <PixelCat v-if="plan.cat" :cat-type="plan.cat.catType" :size="120" />
-          <view class="plan-info">
-            <view class="flex-between">
-              <text class="plan-name">{{ planTypeIcon(plan.planType) }} {{ plan.planName }}</text>
-              <text v-if="plan.status !== 0" class="pixel-tag">已暂停</text>
+            <PixelCat v-if="plan.cat" :cat-type="plan.cat.catType" :size="120" />
+            <view class="plan-info">
+              <view class="flex-between">
+                <text class="plan-name">{{ planTypeIcon(plan.planType) }} {{ plan.planName }}</text>
+                <text v-if="plan.status !== 0" class="pixel-tag">已暂停</text>
+              </view>
+              <view class="plan-meta">
+                <view class="meta-chip">
+                  <image class="pixelated" src="/static/pixel/icon-flame.png" />
+                  <text>{{ plan.currentStreak }}天</text>
+                </view>
+                <view class="meta-chip">
+                  <text>Lv.{{ plan.cat?.level ?? 1 }}</text>
+                </view>
+              </view>
             </view>
-            <view class="plan-meta">
-              <view class="meta-chip">
-                <image class="pixelated" src="/static/pixel/icon-flame.png" />
-                <text>{{ plan.currentStreak }}天</text>
-              </view>
-              <view class="meta-chip">
-                <text>Lv.{{ plan.cat?.level ?? 1 }}</text>
-              </view>
+            <view v-if="plan.todayChecked" class="plan-done">✓</view>
+          </view>
+
+          <view class="card-divider" />
+
+          <!-- 每日任务：勾选胶囊，勾满自动打卡 -->
+          <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0" class="task-pills">
+            <view
+              v-for="(task, ti) in plan.dailyTasks"
+              :key="ti"
+              class="task-pill"
+              :class="{ done: isTaskDone(plan, ti), frozen: plan.todayChecked }"
+              @tap.stop="onToggleTask(plan, ti)"
+            >
+              <view class="pill-check">{{ isTaskDone(plan, ti) ? '✓' : '' }}</view>
+              <text class="pill-text">{{ task }}</text>
             </view>
           </view>
-          <view v-if="plan.todayChecked" class="plan-done">✓</view>
-          </view>
-        </view>
-        <!-- 每日任务：主框下方缩进展示，直接勾选，勾满自动打卡 -->
-        <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0" class="card-tasks">
+
+          <!-- 无每日任务：一键打卡 -->
           <view
-            v-for="(task, ti) in plan.dailyTasks"
-            :key="ti"
-            class="card-task"
-            :class="{ done: isTaskDone(plan, ti), frozen: plan.todayChecked }"
-            @tap="onToggleTask(plan, ti)"
+            v-else-if="plan.status === 0 && !plan.todayChecked"
+            class="card-foot"
+            @tap.stop="directCheckIn(plan)"
           >
-            <view class="task-check">{{ isTaskDone(plan, ti) ? '✓' : '' }}</view>
-            <text class="task-text">{{ task }}</text>
+            <text>无每日任务，一键打卡</text>
+            <text class="foot-arrow">⚔ ›</text>
           </view>
-        </view>
-        <!-- 无任务的计划：跳详情页打卡 -->
-        <view
-          v-else-if="plan.status === 0 && !plan.todayChecked"
-          class="go-detail"
-          @tap="goDetail(plan.id)"
-        >
-          去打卡 ›
         </view>
       </view>
 
@@ -106,6 +107,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref } from 'vue'
 import { toggleTask } from '@/api/plan'
+import { checkIn } from '@/api/checkin'
 import BattleResult from '@/components/battle-result/battle-result.vue'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { planTypeIcon, pixelCat } from '@/constants/pixel'
@@ -131,6 +133,19 @@ function syncTaskProgress() {
     if (p.dailyTasks?.length && taskProgress[p.id] === undefined) {
       taskProgress[p.id] = loadTaskProgress(p.id)
     }
+  }
+}
+
+async function directCheckIn(plan: PlanVO) {
+  if (plan.todayChecked || plan.status !== 0) return
+  battlePlanId.value = plan.id
+  try {
+    battleResult.value = await checkIn({ planId: plan.id })
+    showBattle.value = true
+    planStore.fetchPlans(true)
+    userStore.fetchMe()
+  } catch {
+    // 错误已统一提示
   }
 }
 
@@ -318,8 +333,9 @@ function goRanking() {
 
 .plan-card {
   display: flex;
-  align-items: center;
-  gap: 20rpx;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6rpx;
 
   &.paused {
     opacity: 0.65;
@@ -383,64 +399,87 @@ function goRanking() {
   gap: 20rpx;
 }
 
-.card-tasks {
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-  margin-left: 44rpx;
+.card-divider {
+  margin: 18rpx 0 14rpx;
+  border-top: 4rpx dashed rgba(74, 55, 40, 0.25);
 }
 
-.card-task {
+.task-pills {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.task-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 10rpx;
   @include pixel-block;
   background: $pixel-card-alt;
-  padding: 12rpx 16rpx;
+  padding: 10rpx 18rpx;
+  max-width: 100%;
 
-  .task-check {
-    width: 36rpx;
-    height: 36rpx;
+  .pill-check {
+    width: 32rpx;
+    height: 32rpx;
     background: #fff;
     border: 2rpx solid $pixel-ink;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22rpx;
+    font-size: 20rpx;
     font-weight: 900;
-    color: $pixel-green-dark;
+    color: transparent;
     flex-shrink: 0;
   }
 
-  .task-text {
-    font-size: 24rpx;
+  .pill-text {
+    font-size: 22rpx;
     font-weight: 700;
     color: $pixel-ink;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &.done {
     background: $pixel-green;
 
-    .task-text {
-      color: #fff;
-      text-decoration: line-through;
+    .pill-check {
+      color: $pixel-green;
     }
 
-    .task-check {
-      color: $pixel-green;
+    .pill-text {
+      color: #fff;
+      text-decoration: line-through;
     }
   }
 
   &.frozen {
     opacity: 0.7;
   }
+
+  &:active {
+    transform: translate(2rpx, 2rpx);
+  }
 }
 
-.go-detail {
-  margin-left: 44rpx;
-  font-size: 24rpx;
-  font-weight: 800;
-  color: $pixel-primary-dark;
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4rpx;
+  @include pixel-block;
+  background: $pixel-card-alt;
+  padding: 12rpx 18rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: $pixel-ink-light;
+
+  .foot-arrow {
+    color: $pixel-primary;
+    font-weight: 900;
+  }
 }
 
 .empty {
