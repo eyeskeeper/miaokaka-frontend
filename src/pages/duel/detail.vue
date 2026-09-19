@@ -7,6 +7,10 @@
         <text class="pixel-tag" :class="statusClass(duel.status)">{{ duelStatusLabel(duel.status) }}</text>
       </view>
       <text v-if="duel.duelDesc" class="duel-desc">{{ duel.duelDesc }}</text>
+      <view v-if="duel.status === 0 && isMember" class="invite-row" @tap.stop="openInvite">
+        <text class="invite-text">🎟 邀请好友</text>
+        <text class="invite-tip">{{ duel.myRole === 'leader' ? '组长邀请 · 扫码直接入组' : '成员邀请' }}</text>
+      </view>
       <view class="head-stats">
         <view class="hs"><text class="hs-num">{{ duel.totalPool }}</text><text class="hs-label">奖池喵币</text></view>
         <view class="hs"><text class="hs-num">{{ duel.memberCount }}</text><text class="hs-label">成员</text></view>
@@ -60,6 +64,25 @@
       </view>
     </view>
 
+    <!-- 加入申请审批（组长 + 招募中） -->
+    <view v-if="isLeader && duel.status === 0" class="apply-card pixel-card">
+      <view class="flex-between">
+        <text class="pixel-h2">📨 加入申请</text>
+        <button class="pixel-btn-sm-green" @tap="loadJoinRequests">刷新</button>
+      </view>
+      <view v-if="joinRequests.length === 0" class="apply-empty">暂无加入申请</view>
+      <view v-for="item in joinRequests" :key="item.id" class="apply-row">
+        <view class="apply-info">
+          <text class="apply-name">{{ item.userName }}</text>
+          <text class="apply-time">{{ item.createTime }}</text>
+        </view>
+        <view class="apply-btns">
+          <button class="pixel-btn-sm-green" @tap="reviewApply(item, true)">通过</button>
+          <button class="pixel-btn-sm-red" @tap="reviewApply(item, false)">驳回</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 成员列表 -->
     <view class="member-card pixel-card">
       <text class="pixel-h2">👥 成员进度</text>
@@ -94,6 +117,27 @@
       </button>
     </view>
 
+    <!-- 邀请海报弹窗 -->
+    <view v-if="inviteVisible" class="modal-mask" @tap="inviteVisible = false">
+      <view class="modal pixel-card invite-modal" @tap.stop>
+        <text class="pixel-h2">🎟 邀请好友加入</text>
+        <image
+          v-if="invite"
+          class="poster pixelated"
+          :src="posterSrc()"
+          mode="widthFix"
+          @tap="previewImage(posterSrc())"
+        />
+        <view v-if="invite" class="code-row" @tap="copyCode">
+          <text class="code-label">邀请码</text>
+          <text class="code-value">{{ invite.code }}</text>
+          <text class="code-copy">复制</text>
+        </view>
+        <text class="invite-note">好友扫码或在大厅输入邀请码即可加入；组长邀请直接入组</text>
+        <button class="pixel-btn-sm" @tap="inviteVisible = false">关闭</button>
+      </view>
+    </view>
+
     <!-- 驳回理由弹窗 -->
     <view v-if="rejectTarget" class="modal-mask" @tap="rejectTarget = null">
       <view class="modal pixel-card" @tap.stop>
@@ -116,16 +160,20 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import {
   getDuelDetail,
+  getInvitePoster,
+  getJoinApplications,
   getPendingReviews,
   joinDuel,
   nudgeMember,
   quitDuel,
+  reviewJoinApplication,
   reviewProof
 } from '@/api/duel'
+import { BASE_URL } from '@/config'
 import { duelStatusLabel, memberStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
-import type { DuelVO, MemberVO, ReviewItemVO } from '@/types/api'
+import type { DuelVO, InviteVO, JoinRequestVO, MemberVO, ReviewItemVO } from '@/types/api'
 import { uploadDuelProof } from '@/utils/upload'
 
 const duelStore = useDuelStore()
@@ -141,6 +189,10 @@ const nudgingId = ref<number | null>(null)
 const reviewing = ref(false)
 const rejectTarget = ref<ReviewItemVO | null>(null)
 const rejectReason = ref('')
+const inviteVisible = ref(false)
+const invite = ref<InviteVO | null>(null)
+const inviteLoading = ref(false)
+const joinRequests = ref<JoinRequestVO[]>([])
 const nudgeRemaining = ref<number | null>(null)
 
 const isLeader = computed(() => duel.value?.myRole === 'leader')
@@ -175,6 +227,9 @@ async function load() {
     duel.value = await getDuelDetail(duelId.value)
     if (isLeader.value && duel.value.status === 1) {
       loadPending()
+    }
+    if (isLeader.value && duel.value.status === 0) {
+      loadJoinRequests()
     }
   } catch {
     // 统一提示
@@ -300,6 +355,70 @@ async function doNudge(m: MemberVO) {
   } finally {
     nudgingId.value = null
   }
+}
+
+async function loadJoinRequests() {
+  try {
+    joinRequests.value = (await getJoinApplications(duelId.value)) || []
+  } catch {
+    // 统一提示
+  }
+}
+
+async function reviewJoin(item: JoinRequestVO, approve: boolean) {
+  if (joining.value) return
+  joining.value = true
+  try {
+    await reviewJoinApplication(duelId.value, { requestId: item.id, approve })
+    uni.showToast({ title: approve ? '已通过，押金已扣' : '已驳回', icon: 'none' })
+    loadJoinRequests()
+    load()
+  } catch {
+    // 统一提示
+  } finally {
+    joining.value = false
+  }
+}
+
+function openInvite() {
+  if (inviteLoading.value) return
+  inviteLoading.value = true
+  getInvitePoster(duelId.value)
+    .then((vo) => {
+      invite.value = vo
+      inviteVisible.value = true
+    })
+    .catch(() => {})
+    .finally(() => {
+      inviteLoading.value = false
+    })
+}
+
+function posterSrc(): string {
+  return invite.value ? BASE_URL + invite.value.posterUrl : ''
+}
+
+function copyCode() {
+  if (!invite.value) return
+  uni.setClipboardData({
+    data: invite.value.code,
+    success: () => uni.showToast({ title: '邀请码已复制', icon: 'none' })
+  })
+}
+
+function reviewApply(item: JoinRequestVO, approve: boolean) {
+  if (joining.value) return
+  joining.value = true
+  reviewJoinApplication(duelId.value, { requestId: item.id, approve })
+    .then(() => {
+      uni.showToast({ title: approve ? '已通过' : '已驳回', icon: 'none' })
+      loadJoinRequests()
+      load()
+    })
+    .catch(() => {})
+    .finally(() => {
+      joining.value = false
+    })
 }
 
 function previewImage(url: string) {
@@ -572,6 +691,114 @@ const statusClass = (status: number) =>
 
   .nudge-btn {
     flex-shrink: 0;
+  }
+}
+
+/* 邀横幅与弹窗 */
+.invite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  @include pixel-block;
+  background: $pixel-yellow;
+  padding: 14rpx 20rpx;
+
+  .invite-text {
+    font-size: 26rpx;
+    font-weight: 900;
+    color: $pixel-ink;
+  }
+
+  .invite-tip {
+    font-size: 20rpx;
+    color: rgba(74, 55, 40, 0.6);
+  }
+}
+
+.invite-modal {
+  .poster {
+    width: 100%;
+    margin-top: 16rpx;
+    border: 4rpx solid $pixel-ink;
+  }
+
+  .code-row {
+    display: flex;
+    align-items: center;
+    gap: 14rpx;
+    margin-top: 20rpx;
+    @include pixel-block;
+    background: $pixel-yellow;
+    padding: 14rpx 20rpx;
+
+    .code-label {
+      font-size: 22rpx;
+      color: $pixel-ink-light;
+    }
+
+    .code-value {
+      flex: 1;
+      font-size: 32rpx;
+      font-weight: 900;
+      letter-spacing: 4rpx;
+      color: $pixel-ink;
+    }
+
+    .code-copy {
+      font-size: 22rpx;
+      font-weight: 800;
+      color: $pixel-primary-dark;
+    }
+  }
+
+  .invite-note {
+    display: block;
+    margin-top: 14rpx;
+    font-size: 20rpx;
+    color: $pixel-ink-light;
+  }
+}
+
+/* 加入申请 */
+.apply-card {
+  .apply-empty {
+    margin-top: 14rpx;
+    text-align: center;
+    font-size: 24rpx;
+    color: $pixel-ink-light;
+  }
+
+  .apply-row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    margin-top: 14rpx;
+    @include pixel-block;
+    padding: 14rpx 16rpx;
+
+    .apply-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .apply-name {
+      font-size: 26rpx;
+      font-weight: 800;
+      color: $pixel-ink;
+    }
+
+    .apply-time {
+      display: block;
+      margin-top: 4rpx;
+      font-size: 18rpx;
+      color: $pixel-ink-light;
+    }
+
+    .apply-btns {
+      display: flex;
+      gap: 12rpx;
+    }
   }
 }
 

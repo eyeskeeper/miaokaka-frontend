@@ -44,6 +44,12 @@
       }
     },
     {
+      "path": "pages/duel/join",
+      "style": {
+        "navigationBarTitleText": "邀请加入"
+      }
+    },
+    {
       "path": "pages/duel/create",
       "style": {
         "navigationBarTitleText": "发起死斗"

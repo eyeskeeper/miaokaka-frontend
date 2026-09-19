@@ -1,7 +1,11 @@
 import type {
   DuelCreateRequest,
   DuelVO,
-  MemberVO,
+  InviteInfoVO,
+  InviteUseResultVO,
+  InviteVO,
+  JoinApplicationReviewRequest,
+  JoinRequestVO,
   NudgeInboxVO,
   NudgeSentVO,
   NudgeTemplateVO,
@@ -38,3 +42,27 @@ export const getNudgeTemplate = () => get<NudgeTemplateVO>('/nudge/template')
 
 export const saveNudgeTemplate = (nudgeText: string) =>
   put<NudgeTemplateVO>('/nudge/template', { nudgeText })
+
+// ===== 邀请 / 加入申请 =====
+
+/** 生成邀请海报（仅招募中的正式成员；每成员固定一个邀请码） */
+export const getInvitePoster = (duelId: number) => post<InviteVO>(`/duel/${duelId}/invite`)
+
+/** 邀请码落地信息（免登录） */
+export const getInviteInfo = (code: string) =>
+  get<InviteInfoVO>(`/duel/invite/info/${encodeURIComponent(code)}`)
+
+/** 使用邀请码：组长码直接入组；成员码自由制直接入组、审批制提交申请 */
+export const useInviteCode = (code: string) =>
+  post<InviteUseResultVO>('/duel/invite/use', { code })
+
+/** 申请加入（审批制死斗，不扣押金，批准时才扣） */
+export const applyJoinDuel = (duelId: number) => post<void>(`/duel/${duelId}/apply`)
+
+/** 组长：待审加入申请列表 */
+export const getJoinApplications = (duelId: number) =>
+  get<JoinRequestVO[]>(`/duel/${duelId}/applications`)
+
+/** 组长：审批加入申请 */
+export const reviewJoinApplication = (duelId: number, data: JoinApplicationReviewRequest) =>
+  post<unknown>(`/duel/${duelId}/applications/review`, data)

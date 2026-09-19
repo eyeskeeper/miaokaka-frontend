@@ -68,6 +68,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { APP_NAME } from '@/config'
+import { storage } from '@/utils/storage'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -127,6 +128,12 @@ async function handleSubmit() {
       uni.showToast({ title: '注册成功', icon: 'success' })
     }
     await userStore.login(userAccount.value.trim(), userPassword.value)
+    const pendingCode = storage.get<string>('pendingInviteCode')
+    if (pendingCode) {
+      storage.remove('pendingInviteCode')
+      uni.reLaunch({ url: `/pages/duel/join?code=${pendingCode}` })
+      return
+    }
     uni.reLaunch({ url: '/pages/index/index' })
   } catch (e: any) {
     // 后端错误（账号已存在/账号或密码错误等）在表单内常驻展示

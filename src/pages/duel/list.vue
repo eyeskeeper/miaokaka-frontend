@@ -41,7 +41,23 @@
     <!-- 底部操作 -->
     <view class="bottom-btns">
       <button class="pixel-btn-green" @tap="goCreate">⚔️ 发起死斗</button>
+      <button class="pixel-btn code-btn" @tap="openCodeInput">🎟 邀请码加入</button>
       <button class="pixel-btn template-btn" @tap="openTemplate">📢 拍一拍文案</button>
+    </view>
+
+    <!-- 邀请码输入弹窗 -->
+    <view v-if="showCodeInput" class="modal-mask" @tap="showCodeInput = false">
+      <view class="modal pixel-card" @tap.stop>
+        <text class="pixel-h2">🎟 使用邀请码</text>
+        <input
+          v-model="codeInput"
+          class="pixel-input code-input"
+          :maxlength="16"
+          placeholder="输入好友分享的邀请码"
+          placeholder-class="pixel-placeholder"
+        />
+        <button class="pixel-btn-green" :loading="usingCode" @tap="submitCode">加入死斗</button>
+      </view>
     </view>
 
     <!-- 收件箱弹窗 -->
@@ -79,7 +95,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
-import { getMyNudges, getNudgeTemplate, saveNudgeTemplate } from '@/api/duel'
+import { getMyNudges, getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
@@ -94,6 +110,9 @@ const showInbox = ref(false)
 const showTemplate = ref(false)
 const templateText = ref('')
 const effectiveText = ref('')
+const showCodeInput = ref(false)
+const codeInput = ref('')
+const usingCode = ref(false)
 
 onShow(async () => {
   if (!ensureLogin()) return
@@ -132,6 +151,38 @@ async function openTemplate() {
     effectiveText.value = tpl.effectiveText || ''
   } catch {
     // 统一提示
+  }
+}
+
+function openCodeInput() {
+  codeInput.value = ''
+  showCodeInput.value = true
+}
+
+async function submitCode() {
+  const code = codeInput.value.trim()
+  if (!code) {
+    uni.showToast({ title: '先输入邀请码', icon: 'none' })
+    return
+  }
+  if (usingCode.value) return
+  usingCode.value = true
+  try {
+    const result = await useInviteCode(code)
+    showCodeInput.value = false
+    duelStore.fetchDuels(true)
+    if (result.action === 'apply') {
+      uni.showToast({ title: '申请已提交，等待组长审批', icon: 'none' })
+    } else {
+      uni.showToast({ title: '加入成功！', icon: 'success' })
+      if (result.duel?.id) {
+        setTimeout(() => uni.navigateTo({ url: `/pages/duel/detail?id=${result.duel.id}` }), 600)
+      }
+    }
+  } catch {
+    // 邀请码无效/已满员等，统一提示
+  } finally {
+    usingCode.value = false
   }
 }
 

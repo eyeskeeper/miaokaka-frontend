@@ -271,6 +271,61 @@ export interface NudgeInboxVO {
   items: NudgeItemVO[]
 }
 
+// ===== 邀请 / 加入申请 =====
+
+/** 生成邀请海报（每成员每死斗固定一个邀请码） */
+export interface InviteVO {
+  code: string
+  /** 相对路径，需拼后端域名（BASE_URL） */
+  posterUrl: string
+  duelName: string
+  inviterName: string
+  /** 二维码编码内容（后端落地 URL） */
+  qrContent: string
+}
+
+/** 邀请码落地信息（免登录） */
+export interface InviteInfoVO {
+  duelId: number
+  duelName: string
+  leaderName: string
+  /** 0 自由加入 1 需审批 */
+  joinMode: number
+  depositPerMember: number
+  totalDays: number
+  memberCount: number
+  status: number
+  inviterName: string
+  leaderInvite: boolean
+  /** direct=直接加入 apply=需审批 */
+  joinAction: string
+}
+
+export interface InviteUseRequest {
+  code: string
+}
+
+export interface InviteUseResultVO {
+  /** direct=已直接加入 apply=已提交申请 */
+  action: string
+  duel: DuelVO
+}
+
+/** 组长视角的加入申请 */
+export interface JoinRequestVO {
+  id: number
+  userId: number
+  userName: string
+  userAvatar: string | null
+  createTime: string
+}
+
+export interface JoinApplicationReviewRequest {
+  requestId: number
+  approve: boolean
+  remark?: string
+}
+
 // ===== 喵币钱包 =====
 
 export interface CoinTransaction {
