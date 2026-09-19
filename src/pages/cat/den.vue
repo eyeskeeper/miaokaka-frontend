@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { usePlanStore } from '@/stores/plan'
 import type { CatVO } from '@/types/api'
@@ -66,6 +67,7 @@ import type { CatVO } from '@/types/api'
 const planStore = usePlanStore()
 
 onShow(() => {
+  if (!ensureLogin()) return
   planStore.fetchPlans(true)
 })
 

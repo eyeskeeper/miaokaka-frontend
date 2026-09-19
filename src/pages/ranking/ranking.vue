@@ -55,6 +55,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { useRankStore } from '@/stores/rank'
 import { useUserStore } from '@/stores/user'
 import type { RankItemVO } from '@/types/api'
@@ -85,6 +86,7 @@ const avatarClass = (rank: number) =>
 const avatarText = (item: RankItemVO) => (item.userName || '喵').slice(0, 1)
 
 onShow(() => {
+  if (!ensureLogin()) return
   rankStore.fetchRank()
 })
 </script>

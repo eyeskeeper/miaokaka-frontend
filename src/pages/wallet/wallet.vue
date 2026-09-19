@@ -35,11 +35,13 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { useWalletStore } from '@/stores/wallet'
 
 const walletStore = useWalletStore()
 
 onShow(() => {
+  if (!ensureLogin()) return
   walletStore.fetchWallet(true)
 })
 

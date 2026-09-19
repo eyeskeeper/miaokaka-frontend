@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import {
   getDuelDetail,
   getPendingReviews,
@@ -163,7 +164,10 @@ onLoad((options) => {
   duelId.value = Number(options?.id || 0)
 })
 
-onShow(load)
+onShow(() => {
+  if (!ensureLogin()) return
+  load()
+})
 
 async function load() {
   if (!duelId.value) return

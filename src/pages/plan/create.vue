@@ -102,7 +102,8 @@
 </template>
 
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { reactive, ref } from 'vue'
 import { getPlanDraft } from '@/api/ai'
 import { createPlan, getPlanDetail, updatePlan } from '@/api/plan'
@@ -123,6 +124,10 @@ const tasks = ref<string[]>([''])
 const aiDescription = ref('')
 const aiLoading = ref(false)
 const submitting = ref(false)
+
+onShow(() => {
+  if (!ensureLogin()) return
+})
 
 onLoad(async (options) => {
   const id = Number(options?.id || 0)

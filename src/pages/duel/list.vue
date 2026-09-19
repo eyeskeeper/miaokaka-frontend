@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
 import { getMyNudges, getNudgeTemplate, saveNudgeTemplate } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
@@ -95,7 +96,7 @@ const templateText = ref('')
 const effectiveText = ref('')
 
 onShow(async () => {
-  if (!userStore.isLoggedIn) return
+  if (!ensureLogin()) return
   duelStore.fetchDuels(true)
   // 静默查收拍一拍（读取即消费，先存本地展示）
   try {

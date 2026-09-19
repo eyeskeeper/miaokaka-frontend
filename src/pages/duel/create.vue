@@ -45,6 +45,8 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { createDuel } from '@/api/duel'
 import { useDuelStore } from '@/stores/duel'
 
@@ -54,6 +56,10 @@ const form = reactive({
   duelName: '',
   duelDesc: '',
   startDate: ''
+})
+
+onShow(() => {
+  if (!ensureLogin()) return
 })
 
 const depositText = ref('100')

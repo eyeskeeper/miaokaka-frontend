@@ -122,6 +122,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import { ensureLogin } from '@/utils/auth'
 import { checkIn, makeupCheckIn } from '@/api/checkin'
 import { deletePlan, getPlanDetail, renameCat, toggleTask, updatePlan } from '@/api/plan'
 import BattleResult from '@/components/battle-result/battle-result.vue'
@@ -198,6 +199,7 @@ onLoad((options) => {
 })
 
 onShow(() => {
+  if (!ensureLogin()) return
   load()
 })
 
