@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getMe, login as loginApi, register as registerApi } from '@/api/user'
 import type { LoginUserVO } from '@/types/api'
 import { clearToken, getToken, setToken } from '@/utils/request'
@@ -51,3 +51,7 @@ export const useUserStore = defineStore('user', {
     }
   }
 })
+
+if (import.meta.hot) {
+  acceptHMRUpdate(useUserStore, import.meta.hot)
+}

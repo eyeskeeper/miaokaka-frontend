@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getPlanList } from '@/api/plan'
 import type { CatVO, PlanVO } from '@/types/api'
 
@@ -52,3 +52,7 @@ export const usePlanStore = defineStore('plan', {
     }
   }
 })
+
+if (import.meta.hot) {
+  acceptHMRUpdate(usePlanStore, import.meta.hot)
+}

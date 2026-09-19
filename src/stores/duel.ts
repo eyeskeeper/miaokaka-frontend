@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getDuelList } from '@/api/duel'
 import type { DuelVO } from '@/types/api'
 
@@ -35,3 +35,7 @@ export const useDuelStore = defineStore('duel', {
     }
   }
 })
+
+if (import.meta.hot) {
+  acceptHMRUpdate(useDuelStore, import.meta.hot)
+}

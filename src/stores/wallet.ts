@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getWallet } from '@/api/wallet'
 import type { CoinTransaction } from '@/types/api'
 
@@ -32,3 +32,7 @@ export const useWalletStore = defineStore('wallet', {
     }
   }
 })
+
+if (import.meta.hot) {
+  acceptHMRUpdate(useWalletStore, import.meta.hot)
+}

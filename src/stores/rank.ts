@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getStreakRank } from '@/api/rank'
 import type { RankItemVO } from '@/types/api'
 
@@ -25,3 +25,7 @@ export const useRankStore = defineStore('rank', {
     }
   }
 })
+
+if (import.meta.hot) {
+  acceptHMRUpdate(useRankStore, import.meta.hot)
+}
