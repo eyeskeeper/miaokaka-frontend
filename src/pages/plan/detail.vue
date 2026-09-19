@@ -126,13 +126,13 @@ import { ensureLogin } from '@/utils/auth'
 import { checkIn, makeupCheckIn } from '@/api/checkin'
 import { deletePlan, getPlanDetail, renameCat, toggleTask, updatePlan } from '@/api/plan'
 import BattleResult from '@/components/battle-result/battle-result.vue'
+import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
 import CheckinCalendar from '@/components/checkin-calendar/checkin-calendar.vue'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { bossSprite } from '@/constants/pixel'
 import { usePlanStore } from '@/stores/plan'
 import { useUserStore } from '@/stores/user'
 import type { CheckInResultVO, PlanVO, TaskToggleVO } from '@/types/api'
-import { storage } from '@/utils/storage'
 
 const planStore = usePlanStore()
 const userStore = useUserStore()
@@ -170,18 +170,14 @@ const bossHpPercent = computed(() => {
   return Math.max(0, Math.round((c.bossHp / c.bossMaxHp) * 100))
 })
 
-const taskCacheKey = computed(() => `taskState_${planId.value}`)
-
 function loadTaskCache() {
-  const cache = storage.get<{ date: string; progress: string }>(taskCacheKey.value)
-  const today = new Date().toISOString().slice(0, 10)
-  const progress = cache && cache.date === today ? cache.progress : ''
+  const progress = loadTaskProgress(planId.value)
   taskDone.length = 0
   for (let i = 0; i < taskTotal.value; i++) taskDone[i] = progress[i] === '1'
 }
 
 function saveTaskCache(progress: string) {
-  storage.set(taskCacheKey.value, { date: new Date().toISOString().slice(0, 10), progress })
+  saveTaskProgress(planId.value, progress)
 }
 
 async function load() {

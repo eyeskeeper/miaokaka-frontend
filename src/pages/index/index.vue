@@ -34,38 +34,50 @@
       <view
         v-for="plan in planStore.plans"
         :key="plan.id"
-        class="plan-card pixel-card"
-        :class="{ paused: plan.status !== 0 }"
-        @tap="goDetail(plan.id)"
+        class="plan-group"
       >
-        <PixelCat v-if="plan.cat" :cat-type="plan.cat.catType" :size="120" />
-        <view class="plan-info">
-          <view class="flex-between">
-            <text class="plan-name">{{ planTypeIcon(plan.planType) }} {{ plan.planName }}</text>
-            <text v-if="plan.status !== 0" class="pixel-tag">已暂停</text>
+        <view class="plan-card pixel-card" :class="{ paused: plan.status !== 0 }" @tap="goDetail(plan.id)">
+          <view class="plan-top">
+          <PixelCat v-if="plan.cat" :cat-type="plan.cat.catType" :size="120" />
+          <view class="plan-info">
+            <view class="flex-between">
+              <text class="plan-name">{{ planTypeIcon(plan.planType) }} {{ plan.planName }}</text>
+              <text v-if="plan.status !== 0" class="pixel-tag">已暂停</text>
+            </view>
+            <view class="plan-meta">
+              <view class="meta-chip">
+                <image class="pixelated" src="/static/pixel/icon-flame.png" />
+                <text>{{ plan.currentStreak }}天</text>
+              </view>
+              <view class="meta-chip">
+                <text>Lv.{{ plan.cat?.level ?? 1 }}</text>
+              </view>
+            </view>
           </view>
-          <view class="plan-meta">
-            <view class="meta-chip">
-              <image class="pixelated" src="/static/pixel/icon-flame.png" />
-              <text>{{ plan.currentStreak }}天</text>
-            </view>
-            <view v-if="plan.dailyTasks && plan.dailyTasks.length" class="meta-chip">
-              <text>☑ {{ plan.dailyTasks.length }} 项任务</text>
-            </view>
-            <view class="meta-chip">
-              <text>Lv.{{ plan.cat?.level ?? 1 }}</text>
-            </view>
+          <view v-if="plan.todayChecked" class="plan-done">✓</view>
           </view>
         </view>
-        <button
-          v-if="plan.status === 0 && !plan.todayChecked"
-          class="pixel-btn-sm plan-check"
-          :loading="checkingId === plan.id"
-          @tap.stop="doCheckIn(plan)"
+        <!-- 每日任务：主框下方缩进展示，直接勾选，勾满自动打卡 -->
+        <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0" class="card-tasks">
+          <view
+            v-for="(task, ti) in plan.dailyTasks"
+            :key="ti"
+            class="card-task"
+            :class="{ done: isTaskDone(plan, ti), frozen: plan.todayChecked }"
+            @tap="onToggleTask(plan, ti)"
+          >
+            <view class="task-check">{{ isTaskDone(plan, ti) ? '✓' : '' }}</view>
+            <text class="task-text">{{ task }}</text>
+          </view>
+        </view>
+        <!-- 无任务的计划：跳详情页打卡 -->
+        <view
+          v-else-if="plan.status === 0 && !plan.todayChecked"
+          class="go-detail"
+          @tap="goDetail(plan.id)"
         >
-          打卡
-        </button>
-        <view v-else-if="plan.todayChecked" class="plan-done">✓</view>
+          去打卡 ›
+        </view>
       </view>
 
       <!-- 空状态 -->
@@ -92,22 +104,62 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
-import { checkIn } from '@/api/checkin'
+import { computed, reactive, ref } from 'vue'
+import { toggleTask } from '@/api/plan'
 import BattleResult from '@/components/battle-result/battle-result.vue'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { planTypeIcon, pixelCat } from '@/constants/pixel'
 import { usePlanStore } from '@/stores/plan'
 import { useUserStore } from '@/stores/user'
+import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
 import type { CheckInResultVO, PlanVO } from '@/types/api'
 
 const planStore = usePlanStore()
 const userStore = useUserStore()
 
-const checkingId = ref<number | null>(null)
 const showBattle = ref(false)
 const battleResult = ref<CheckInResultVO | null>(null)
 const battlePlanId = ref<number | null>(null)
+/** 每计划的今日任务位图本地状态（与详情页共享按天缓存） */
+const taskProgress = reactive<Record<number, string>>({})
+
+const isTaskDone = (plan: PlanVO, index: number) =>
+  (taskProgress[plan.id] ?? '')[index] === '1'
+
+function syncTaskProgress() {
+  for (const p of planStore.plans) {
+    if (p.dailyTasks?.length && taskProgress[p.id] === undefined) {
+      taskProgress[p.id] = loadTaskProgress(p.id)
+    }
+  }
+}
+
+async function onToggleTask(plan: PlanVO, index: number) {
+  if (plan.todayChecked || plan.status !== 0) return
+  const total = plan.dailyTasks?.length ?? 0
+  const cur = (taskProgress[plan.id] ?? '').padEnd(total, '0')
+  const next = cur[index] !== '1'   // 未勾→勾选(true)，已勾→取消(false)
+  const nextChar = next ? '1' : '0'
+  const newProgress = cur.slice(0, index) + nextChar + cur.slice(index + 1)
+  taskProgress[plan.id] = newProgress
+  saveTaskProgress(plan.id, newProgress)
+  try {
+    const vo = await toggleTask(plan.id, index, next)
+    if (vo.taskProgress) {
+      taskProgress[plan.id] = vo.taskProgress
+      saveTaskProgress(plan.id, vo.taskProgress)
+    }
+    if (vo.autoChecked && vo.checkInResult) {
+      battlePlanId.value = plan.id
+      battleResult.value = vo.checkInResult
+      showBattle.value = true
+      planStore.fetchPlans(true)
+      userStore.fetchMe()
+    }
+  } catch {
+    taskProgress[plan.id] = cur // 失败回滚
+  }
+}
 
 const battleBossLevel = computed(
   () => planStore.plans.find((p) => p.id === battlePlanId.value)?.cat?.bossLevel ?? 1
@@ -142,26 +194,9 @@ onShow(() => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
-  planStore.fetchPlans(true)
+  planStore.fetchPlans(true).then(syncTaskProgress)
   userStore.fetchMe()
 })
-
-async function doCheckIn(plan: PlanVO) {
-  if (checkingId.value) return
-  checkingId.value = plan.id
-  battlePlanId.value = plan.id
-  try {
-    battleResult.value = await checkIn({ planId: plan.id })
-    showBattle.value = true
-    // 结算后本地更新：直接打卡即完成，任务类计划可能有剩余勾选，交由详情页处理
-    planStore.fetchPlans(true)
-    userStore.fetchMe()
-  } catch {
-    // 错误已统一提示
-  } finally {
-    checkingId.value = null
-  }
-}
 
 function onBattleClose() {
   showBattle.value = false
@@ -326,10 +361,6 @@ function goRanking() {
     }
   }
 
-  .plan-check {
-    flex-shrink: 0;
-  }
-
   .plan-done {
     @include pixel-btn($pixel-green);
     width: 72rpx;
@@ -338,6 +369,78 @@ function goRanking() {
     flex-shrink: 0;
     padding: 0;
   }
+}
+
+.plan-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.plan-top {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.card-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-left: 44rpx;
+}
+
+.card-task {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  @include pixel-block;
+  background: $pixel-card-alt;
+  padding: 12rpx 16rpx;
+
+  .task-check {
+    width: 36rpx;
+    height: 36rpx;
+    background: #fff;
+    border: 2rpx solid $pixel-ink;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22rpx;
+    font-weight: 900;
+    color: $pixel-green-dark;
+    flex-shrink: 0;
+  }
+
+  .task-text {
+    font-size: 24rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
+
+  &.done {
+    background: $pixel-green;
+
+    .task-text {
+      color: #fff;
+      text-decoration: line-through;
+    }
+
+    .task-check {
+      color: $pixel-green;
+    }
+  }
+
+  &.frozen {
+    opacity: 0.7;
+  }
+}
+
+.go-detail {
+  margin-left: 44rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  color: $pixel-primary-dark;
 }
 
 .empty {
