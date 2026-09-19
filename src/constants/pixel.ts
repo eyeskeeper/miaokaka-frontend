@@ -51,7 +51,7 @@ export const DUEL_STATUS = {
 } as const
 
 export const duelStatusLabel = (status: number) =>
-  ({ 0: '招募中', 1: '进行中', 2: '已结束' } as Record<number, string>)[status] ?? '未知'
+  ({ 0: '招募中', 1: '进行中', 2: '已结算', 3: '已解散' } as Record<number, string>)[status] ?? '未知'
 
 // ===== 成员打卡状态（死斗）=====
 
