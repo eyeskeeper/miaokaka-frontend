@@ -53,10 +53,10 @@
             <view v-if="plan.todayChecked" class="plan-done">✓</view>
           </view>
 
-          <view class="card-divider" />
+          <view v-if="plan.status === 0 && !plan.todayChecked" class="card-divider" />
 
-          <!-- 每日任务：勾选胶囊，勾满自动打卡 -->
-          <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0" class="task-pills">
+          <!-- 每日任务：勾选胶囊，勾满自动打卡；打卡完成后隐藏 -->
+          <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0 && !plan.todayChecked" class="task-pills">
             <view
               v-for="(task, ti) in plan.dailyTasks"
               :key="ti"
