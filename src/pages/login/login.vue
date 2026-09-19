@@ -15,12 +15,15 @@
 
     <!-- 表单 -->
     <view class="form-card pixel-card">
+      <view v-if="errorMsg" class="form-error">⚠ {{ errorMsg }}</view>
       <view class="form-item">
         <text class="form-label">账号</text>
         <input
           v-model="userAccount"
           class="pixel-input"
+          :class="{ 'has-err': errField === 'account' }"
           placeholder="4~32 位账号"
+          @input="clearError"
           placeholder-class="pixel-placeholder"
           :maxlength="32"
         />
@@ -31,7 +34,9 @@
           v-model="userPassword"
           class="pixel-input"
           type="password"
+          :class="{ 'has-err': errField === 'password' }"
           placeholder="至少 8 位密码"
+          @input="clearError"
           placeholder-class="pixel-placeholder"
           :maxlength="32"
         />
@@ -42,7 +47,9 @@
           v-model="checkPassword"
           class="pixel-input"
           type="password"
+          :class="{ 'has-err': errField === 'check' }"
           placeholder="再输入一次密码"
+          @input="clearError"
           placeholder-class="pixel-placeholder"
           :maxlength="32"
         />
@@ -70,6 +77,13 @@ const userAccount = ref('')
 const userPassword = ref('')
 const checkPassword = ref('')
 const submitting = ref(false)
+const errorMsg = ref('')
+const errField = ref('')
+
+function clearError() {
+  errorMsg.value = ''
+  errField.value = ''
+}
 
 onShow(() => {
   // 已登录直接进首页
@@ -83,9 +97,19 @@ function switchMode(m: 'login' | 'register') {
 }
 
 function validate(): string | null {
-  if (userAccount.value.trim().length < 4) return '账号至少 4 位'
-  if (userPassword.value.length < 8) return '密码至少 8 位'
-  if (mode.value === 'register' && checkPassword.value !== userPassword.value) return '两次密码不一致'
+  clearError()
+  if (userAccount.value.trim().length < 4) {
+    errField.value = 'account'
+    return '账号至少 4 位'
+  }
+  if (userPassword.value.length < 8) {
+    errField.value = 'password'
+    return '密码至少 8 位'
+  }
+  if (mode.value === 'register' && checkPassword.value !== userPassword.value) {
+    errField.value = 'check'
+    return '两次密码不一致'
+  }
   return null
 }
 
@@ -93,7 +117,7 @@ async function handleSubmit() {
   if (submitting.value) return
   const err = validate()
   if (err) {
-    uni.showToast({ title: err, icon: 'none' })
+    errorMsg.value = err
     return
   }
   submitting.value = true
@@ -104,8 +128,9 @@ async function handleSubmit() {
     }
     await userStore.login(userAccount.value.trim(), userPassword.value)
     uni.reLaunch({ url: '/pages/index/index' })
-  } catch {
-    // 错误 toast 已由 request 统一处理
+  } catch (e: any) {
+    // 后端错误（账号已存在/账号或密码错误等）在表单内常驻展示
+    errorMsg.value = e?.message || '操作失败，请稍后重试'
   } finally {
     submitting.value = false
   }
@@ -202,6 +227,20 @@ async function handleSubmit() {
     color: $pixel-ink;
     width: 100%;
     box-sizing: border-box;
+
+    &.has-err {
+      border-color: $pixel-red;
+      background: #fdeeee;
+    }
+  }
+
+  .form-error {
+    @include pixel-block($pixel-red);
+    color: #fff;
+    font-size: 24rpx;
+    font-weight: 700;
+    padding: 14rpx 20rpx;
+    margin-bottom: 24rpx;
   }
 }
 
