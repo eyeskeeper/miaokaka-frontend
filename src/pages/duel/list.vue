@@ -41,7 +41,7 @@
 
     <!-- 底部操作 -->
     <view class="bottom-btns">
-      <button class="pixel-btn-green" @tap="goCreate">⚔️ 发起死斗</button>
+      <button class="pixel-btn-green btn-create" @tap="goCreate">⚔️ 发起死斗</button>
       <button class="pixel-btn code-btn" @tap="openCodeInput">🎟 邀请码加入</button>
       <button class="pixel-btn template-btn" @tap="openTemplate">📢 拍一拍文案</button>
     </view>
@@ -336,11 +336,23 @@ async function saveTemplate() {
 
 .bottom-btns {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
   margin-top: 8rpx;
 
-  button {
+  // 主操作通栏，次级操作并排：避免三个按钮挤一行文字折行出界
+  .btn-create {
+    flex: 1 1 100%;
+  }
+
+  .code-btn,
+  .template-btn {
     flex: 1;
+    min-width: 0;
+    padding: 0 12rpx;
+    font-size: 26rpx;
+    letter-spacing: 0;
+    white-space: nowrap;
   }
 }
 
