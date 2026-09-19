@@ -16,9 +16,11 @@
       <view v-for="duel in hall" :key="duel.id" class="hall-row">
         <view class="hall-info">
           <text class="hall-name">⚔️ {{ duel.duelName }}</text>
-          <text class="hall-meta">👥 {{ duel.memberCount }}人 · 💰奖池 {{ duel.totalPool }} · ⏳ {{ duel.totalDays }}天 · 押金 {{ duel.depositPerMember }}</text>
+          <text class="hall-meta">组长 {{ duel.leaderName }} · 👥{{ duel.memberCount }}人 · 押金{{ duel.depositPerMember }} · {{ duel.totalDays }}天</text>
         </view>
-        <button class="pixel-btn-sm-green" @tap="joinHallDuel(duel)">加入</button>
+        <button class="pixel-btn-sm-green" @tap="joinHallDuel(duel)">
+          {{ duel.joinMode === 1 ? '申请' : '加入' }}
+        </button>
       </view>
     </view>
 
@@ -111,11 +113,11 @@
 import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
-import { getJoinApplications, getMyNudges, getNudgeTemplate, getRecruitingHall, saveNudgeTemplate, useInviteCode, joinDuel as joinDuelApi } from '@/api/duel'
+import { applyJoinDuel, getJoinApplications, getMyNudges, getNudgeTemplate, getRecruitingHall, saveNudgeTemplate, useInviteCode, joinDuel as joinDuelApi } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
-import type { NudgeItemVO } from '@/types/api'
+import type { HallDuelVO, NudgeItemVO } from '@/types/api'
 
 const duelStore = useDuelStore()
 const userStore = useUserStore()
@@ -130,31 +132,39 @@ const showCodeInput = ref(false)
 const codeInput = ref('')
 const usingCode = ref(false)
 /** 招募大厅：招募中且我未加入的死斗 */
-const hall = ref<any[]>([])
+const hall = ref<HallDuelVO[]>([])
 
 function refreshHall() {
-  getRecruitingHall()
-    .then((list) => {
-      const mine = new Set(duelStore.duels.map((d) => d.id))
-      hall.value = (list || []).filter((d) => !mine.has(d.id))
+  getRecruitingHall(1, 50)
+    .then((page) => {
+      // 过滤掉我已加入/我创建的（myRelation 非空）
+      hall.value = (page?.records || []).filter((d) => !d.myRelation && d.status === 0)
     })
     .catch(() => {
-      hall.value = [] // 后端接口未上线或无数据时静默降级
+      hall.value = [] // 接口未上线或无数据时静默降级
     })
 }
 
-async function joinHallDuel(duel: any) {
+async function joinHallDuel(duel: HallDuelVO) {
+  const approval = duel.joinMode === 1
   const ok = await new Promise<boolean>((resolve) => {
     uni.showModal({
-      title: '加入死斗',
-      content: `将扣押金 ${duel.depositPerMember} 喵币，确定加入「${duel.duelName}」？`,
+      title: approval ? '申请加入死斗' : '加入死斗',
+      content: approval
+        ? `该死斗需组长审批，确定申请加入「${duel.duelName}」？`
+        : `将扣押金 ${duel.depositPerMember} 喵币，确定加入「${duel.duelName}」？`,
       success: (res) => resolve(!!res.confirm)
     })
   })
   if (!ok) return
   try {
-    await joinDuelApi(duel.id)
-    uni.showToast({ title: '加入成功！', icon: 'success' })
+    if (approval) {
+      await applyJoinDuel(duel.id)
+      uni.showToast({ title: '申请已提交，等待组长审批', icon: 'none' })
+    } else {
+      await joinDuelApi(duel.id)
+      uni.showToast({ title: '加入成功！', icon: 'success' })
+    }
     duelStore.fetchDuels(true)
     refreshHall()
   } catch {
@@ -164,7 +174,7 @@ async function joinHallDuel(duel: any) {
 
 onShow(async () => {
   if (!ensureLogin()) return
-  duelStore.fetchDuels(true)
+  duelStore.fetchDuels(true).then(refreshHall)
   // 静默查收拍一拍（读取即消费，先存本地展示）
   try {
     const box = await getMyNudges()

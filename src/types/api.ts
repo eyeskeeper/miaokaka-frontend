@@ -311,6 +311,33 @@ export interface InviteUseResultVO {
   duel: DuelVO
 }
 
+/** 招募大厅条目（GET /duel/hall） */
+export interface HallDuelVO {
+  id: number
+  duelName: string
+  duelDesc: string | null
+  /** 0 自由加入 1 需审批 */
+  joinMode: number
+  leaderId: number
+  leaderName: string
+  memberCount: number
+  depositPerMember: number
+  totalDays: number
+  status: number
+  startDate: string
+  endDate: string
+  /** null=未加入 'leader'=我是组长 其他=已加入 */
+  myRelation: string | null
+}
+
+export interface HallPageVO {
+  records: HallDuelVO[]
+  total: number
+  current: number
+  size: number
+  pages: number
+}
+
 /** 组长视角的加入申请 */
 export interface JoinRequestVO {
   id: number

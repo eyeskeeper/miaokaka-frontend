@@ -21,3 +21,6 @@ dist
 *.sw?
 # ZCode CLI session data
 .zcode
+
+# 临时调试文件
+scripts/_*.txt
