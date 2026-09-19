@@ -7,23 +7,6 @@
       <text class="nudge-go">查看 ▶</text>
     </view>
 
-    <!-- 招募大厅：别人发起的、可加入的招募中死斗 -->
-    <view v-if="hall.length" class="hall-section pixel-card">
-      <view class="flex-between">
-        <text class="pixel-h2">🏟 招募大厅</text>
-        <text class="hall-tip">押上喵币，随时参战</text>
-      </view>
-      <view v-for="duel in hall" :key="duel.id" class="hall-row">
-        <view class="hall-info">
-          <text class="hall-name">⚔️ {{ duel.duelName }}</text>
-          <text class="hall-meta">组长 {{ duel.leaderName }} · 👥{{ duel.memberCount }}人 · 押金{{ duel.depositPerMember }} · {{ duel.totalDays }}天</text>
-        </view>
-        <button class="pixel-btn-sm-green" @tap="joinHallDuel(duel)">
-          {{ duel.joinMode === 1 ? '申请' : '加入' }}
-        </button>
-      </view>
-    </view>
-
     <!-- 列表 -->
     <view class="section-title" v-if="duelStore.duels.length"><text class="pixel-h2">📋 我的死斗</text></view>
     <view v-for="duel in duelStore.duels" :key="duel.id" class="duel-card pixel-card" @tap="goDetail(duel.id)">
@@ -113,11 +96,11 @@
 import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
-import { applyJoinDuel, getJoinApplications, getMyNudges, getNudgeTemplate, getRecruitingHall, saveNudgeTemplate, useInviteCode, joinDuel as joinDuelApi } from '@/api/duel'
+import { getMyNudges, getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
-import type { HallDuelVO, NudgeItemVO } from '@/types/api'
+import type { NudgeItemVO } from '@/types/api'
 
 const duelStore = useDuelStore()
 const userStore = useUserStore()
@@ -131,50 +114,10 @@ const effectiveText = ref('')
 const showCodeInput = ref(false)
 const codeInput = ref('')
 const usingCode = ref(false)
-/** 招募大厅：招募中且我未加入的死斗 */
-const hall = ref<HallDuelVO[]>([])
-
-function refreshHall() {
-  getRecruitingHall(1, 50)
-    .then((page) => {
-      // 过滤掉我已加入/我创建的（myRelation 非空）
-      hall.value = (page?.records || []).filter((d) => !d.myRelation && d.status === 0)
-    })
-    .catch(() => {
-      hall.value = [] // 接口未上线或无数据时静默降级
-    })
-}
-
-async function joinHallDuel(duel: HallDuelVO) {
-  const approval = duel.joinMode === 1
-  const ok = await new Promise<boolean>((resolve) => {
-    uni.showModal({
-      title: approval ? '申请加入死斗' : '加入死斗',
-      content: approval
-        ? `该死斗需组长审批，确定申请加入「${duel.duelName}」？`
-        : `将扣押金 ${duel.depositPerMember} 喵币，确定加入「${duel.duelName}」？`,
-      success: (res) => resolve(!!res.confirm)
-    })
-  })
-  if (!ok) return
-  try {
-    if (approval) {
-      await applyJoinDuel(duel.id)
-      uni.showToast({ title: '申请已提交，等待组长审批', icon: 'none' })
-    } else {
-      await joinDuelApi(duel.id)
-      uni.showToast({ title: '加入成功！', icon: 'success' })
-    }
-    duelStore.fetchDuels(true)
-    refreshHall()
-  } catch {
-    // 余额不足/已满员等，统一提示
-  }
-}
 
 onShow(async () => {
   if (!ensureLogin()) return
-  duelStore.fetchDuels(true).then(refreshHall)
+  duelStore.fetchDuels(true)
   // 静默查收拍一拍（读取即消费，先存本地展示）
   try {
     const box = await getMyNudges()
@@ -496,45 +439,6 @@ async function saveTemplate() {
   color: $uni-text-color-placeholder;
 }
 </style>
-
-/* 招募大厅 */
-.hall-section {
-  .hall-tip {
-    font-size: 20rpx;
-    color: $pixel-ink-light;
-  }
-
-  .hall-row {
-    display: flex;
-    align-items: center;
-    gap: 16rpx;
-    margin-top: 14rpx;
-    @include pixel-block;
-    padding: 14rpx 16rpx;
-
-    .hall-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .hall-name {
-      display: block;
-      font-size: 26rpx;
-      font-weight: 900;
-      color: $pixel-ink;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .hall-meta {
-      display: block;
-      margin-top: 6rpx;
-      font-size: 20rpx;
-      color: $pixel-ink-light;
-    }
-  }
-}
 
 .section-title {
   margin-top: 8rpx;

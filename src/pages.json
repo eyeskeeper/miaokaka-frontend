@@ -50,6 +50,12 @@
       }
     },
     {
+      "path": "pages/duel/hall",
+      "style": {
+        "navigationBarTitleText": "招募大厅"
+      }
+    },
+    {
       "path": "pages/duel/create",
       "style": {
         "navigationBarTitleText": "发起死斗"
@@ -91,6 +97,12 @@
         "text": "猫窝",
         "iconPath": "static/tabbar/cat.png",
         "selectedIconPath": "static/tabbar/cat-active.png"
+      },
+      {
+        "pagePath": "pages/duel/hall",
+        "text": "大厅",
+        "iconPath": "static/tabbar/hall.png",
+        "selectedIconPath": "static/tabbar/hall-active.png"
       },
       {
         "pagePath": "pages/duel/list",

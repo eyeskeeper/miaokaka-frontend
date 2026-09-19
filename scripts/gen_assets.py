@@ -392,6 +392,25 @@ TAB_USER = [
     "................",
 ]
 
+TAB_HALL = [
+    "..kk............",
+    "..kbk...........",
+    "..kbkkkkkkkkkk..",
+    "..kbbbbbbbbbbk..",
+    "..kbbbbbbbbbbk..",
+    "..kbbbkbbkbbbk..",
+    "..kbbbbbbbbbbk..",
+    "..kbkkkkkkkkkk..",
+    "..kbk...........",
+    "..kbk...........",
+    "..kbk...........",
+    "..kbkk..........",
+    "..kbbbbkk.......",
+    "..kkkkkkkk......",
+    "................",
+    "................",
+]
+
 
 def render(grid, palette, scale):
     h = len(grid)
@@ -430,7 +449,7 @@ def main():
     # tabBar 图标：两态
     gray_pal = {"k": TAB_INACTIVE, "b": TAB_INACTIVE, "e": (0, 0, 0, 0)}
     active_pal = {"k": TAB_ACTIVE, "b": TAB_ACTIVE, "e": (0, 0, 0, 0)}
-    tabs = {"home": TAB_HOME, "cat": TAB_CAT, "sword": TAB_SWORD, "user": TAB_USER}
+    tabs = {"home": TAB_HOME, "cat": TAB_CAT, "sword": TAB_SWORD, "user": TAB_USER, "hall": TAB_HALL}
     for name, grid in tabs.items():
         save(grid, gray_pal, os.path.join(TAB_DIR, f"{name}.png"), scale=5)
         save(grid, active_pal, os.path.join(TAB_DIR, f"{name}-active.png"), scale=5)
