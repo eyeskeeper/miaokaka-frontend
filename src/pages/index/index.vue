@@ -33,13 +33,14 @@
     <!-- 计划列表 -->
     <view class="plan-list">
       <view v-for="plan in planStore.plans" :key="plan.id" class="plan-group">
-        <view class="plan-card pixel-card" :class="{ paused: plan.status !== 0 }" @tap="goDetail(plan.id)">
+        <view class="plan-card pixel-card" :class="{ paused: plan.status !== 0 }" @tap="goPlanDetail(plan)">
           <view class="plan-top">
             <PixelCat v-if="plan.cat" :cat-type="plan.cat.catType" :size="120" />
             <view class="plan-info">
               <view class="flex-between">
                 <text class="plan-name">{{ planTypeIcon(plan.planType) }} {{ plan.planName }}</text>
-                <text v-if="plan.status !== 0" class="pixel-tag">已暂停</text>
+                <text v-if="isDuelPlan(plan)" class="pixel-tag duel-tag">⚔️ 死斗</text>
+                <text v-else-if="plan.status !== 0" class="pixel-tag">已暂停</text>
               </view>
               <view class="plan-meta">
                 <view class="meta-chip">
@@ -70,13 +71,23 @@
             </view>
           </view>
 
-          <!-- 无每日任务：一键打卡 -->
+          <!-- 死斗计划：任务勾满提示传凭证（点击去死斗详情） -->
           <view
-            v-else-if="plan.status === 0 && !plan.todayChecked"
-            class="card-foot"
-            @tap.stop="directCheckIn(plan)"
+            v-if="isDuelPlan(plan) && plan.status === 0 && !plan.todayChecked && plan.dailyTasks?.length && duelTaskAllDone(plan)"
+            class="card-foot proof-foot"
+            @tap.stop="goDuelDetail(plan)"
           >
-            <text>无每日任务，一键打卡</text>
+            <text>✅ 任务已勾满，上传打卡凭证完成打卡</text>
+            <text class="foot-arrow">📷 ›</text>
+          </view>
+
+          <!-- 无每日任务：普通计划一键打卡；死斗计划去详情传凭证 -->
+          <view
+            v-else-if="plan.status === 0 && !plan.todayChecked && !(plan.dailyTasks && plan.dailyTasks.length)"
+            class="card-foot"
+            @tap.stop="isDuelPlan(plan) ? goDuelDetail(plan) : directCheckIn(plan)"
+          >
+            <text>{{ isDuelPlan(plan) ? '死斗打卡需上传照片凭证' : '无每日任务，一键打卡' }}</text>
             <text class="foot-arrow">⚔ ›</text>
           </view>
         </view>
@@ -113,6 +124,7 @@ import { checkIn } from '@/api/checkin'
 import BattleResult from '@/components/battle-result/battle-result.vue'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { planTypeIcon, pixelCat } from '@/constants/pixel'
+import { useDuelStore } from '@/stores/duel'
 import { usePlanStore } from '@/stores/plan'
 import { useUserStore } from '@/stores/user'
 import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
@@ -120,12 +132,34 @@ import type { CheckInResultVO, PlanVO } from '@/types/api'
 
 const planStore = usePlanStore()
 const userStore = useUserStore()
+const duelStore = useDuelStore()
 
 const showBattle = ref(false)
 const battleResult = ref<CheckInResultVO | null>(null)
 const battlePlanId = ref<number | null>(null)
 /** 每计划的今日任务位图本地状态（与详情页共享按天缓存） */
 const taskProgress = reactive<Record<number, string>>({})
+
+/** 死斗影子计划：planId -> duelId（DuelVO.myPlanId 反查） */
+const duelPlanMap = computed(() => {
+  const map: Record<number, number> = {}
+  for (const d of duelStore.duels) {
+    if (d.myPlanId) map[d.myPlanId] = d.id
+  }
+  return map
+})
+
+const isDuelPlan = (plan: PlanVO) => duelPlanMap.value[plan.id] !== undefined
+
+const duelTaskAllDone = (plan: PlanVO) => {
+  const total = plan.dailyTasks?.length ?? 0
+  if (!total) return false
+  const progress = taskProgress[plan.id] ?? ''
+  for (let i = 0; i < total; i++) {
+    if (progress[i] !== '1') return false
+  }
+  return true
+}
 
 const isTaskDone = (plan: PlanVO, index: number) =>
   (taskProgress[plan.id] ?? '')[index] === '1'
@@ -172,6 +206,9 @@ async function onToggleTask(plan: PlanVO, index: number) {
       showBattle.value = true
       planStore.fetchPlans(true)
       userStore.fetchMe()
+    } else if (vo.allDone && !vo.autoChecked && isDuelPlan(plan)) {
+      // 死斗影子计划：勾满不自动打卡，提示上传凭证
+      uni.showToast({ title: vo.message || '任务已勾满，去死斗上传打卡凭证', icon: 'none' })
     }
   } catch {
     taskProgress[plan.id] = cur // 失败回滚
@@ -213,6 +250,8 @@ onShow(() => {
   }
   planStore.fetchPlans(true).then(syncTaskProgress)
   userStore.fetchMe()
+  // 静默拉死斗列表，用于识别死斗影子计划（打卡走凭证而非自动结算）
+  duelStore.fetchDuels(true).catch(() => {})
 })
 
 function onBattleClose() {
@@ -221,6 +260,22 @@ function onBattleClose() {
 
 function goDetail(id: number) {
   uni.navigateTo({ url: `/pages/plan/detail?id=${id}` })
+}
+
+function goPlanDetail(plan: PlanVO) {
+  const duelId = duelPlanMap.value[plan.id]
+  // 死斗影子计划直达死斗详情（打卡凭证/任务清单都在那里）
+  if (duelId) {
+    goDuelDetail(plan)
+    return
+  }
+  goDetail(plan.id)
+}
+
+function goDuelDetail(plan: PlanVO) {
+  const duelId = duelPlanMap.value[plan.id]
+  if (!duelId) return
+  uni.navigateTo({ url: `/pages/duel/detail?id=${duelId}` })
 }
 
 function goCreate() {
@@ -482,6 +537,17 @@ function goRanking() {
     color: $pixel-primary;
     font-weight: 900;
   }
+
+  // 死斗任务勾满 → 引导上传凭证
+  &.proof-foot {
+    background: $pixel-yellow;
+    color: $pixel-primary-dark;
+  }
+}
+
+.duel-tag {
+  background: $pixel-red;
+  color: #fffbef;
 }
 
 .empty {

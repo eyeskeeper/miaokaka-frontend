@@ -35,6 +35,29 @@
       <text v-if="myStatusText" class="my-status">{{ myStatusText }}</text>
     </view>
 
+    <!-- 死斗任务清单（进行中且有清单的成员）：勾满不自动打卡，仍需上传凭证 -->
+    <view
+      v-if="isMember && duel.status === 1 && duel.dailyTasks?.length && duel.myPlanId"
+      class="dtasks-card pixel-card"
+    >
+      <view class="flex-between">
+        <text class="pixel-h2">📋 今日任务清单</text>
+        <text class="dtasks-count">{{ doneCount }}/{{ duel.dailyTasks.length }}</text>
+      </view>
+      <view
+        v-for="(task, ti) in duel.dailyTasks"
+        :key="ti"
+        class="task-pill"
+        :class="{ done: isTaskDone(ti), frozen: taskFrozen }"
+        @tap="onToggleTask(ti)"
+      >
+        <view class="pill-check">{{ isTaskDone(ti) ? '✓' : '' }}</view>
+        <text class="pill-text">{{ task }}</text>
+      </view>
+      <view v-if="allDone && !taskFrozen" class="dtasks-hint">✅ 任务已全部勾满，上传打卡凭证完成今日打卡</view>
+      <view v-else-if="taskFrozen" class="dtasks-hint dim">今日打卡流程已走完，任务勾选已冻结</view>
+    </view>
+
     <!-- 组长审核区 -->
     <view v-if="isLeader && duel.status === 1" class="review-card pixel-card">
       <view class="flex-between">
@@ -171,6 +194,8 @@ import {
 } from '@/api/duel'
 import { BASE_URL } from '@/config'
 import { duelStatusLabel, memberStatusLabel } from '@/constants/pixel'
+import { toggleTask } from '@/api/plan'
+import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
 import type { DuelVO, InviteVO, JoinRequestVO, MemberVO, ReviewItemVO } from '@/types/api'
@@ -186,6 +211,53 @@ const myTodayProofUrl = ref('')
 const joining = ref(false)
 const quitting = ref(false)
 const nudgingId = ref<number | null>(null)
+
+// ===== 死斗任务清单（影子计划任务位图，与首页共享按天缓存） =====
+const dtaskProgress = ref('')
+
+const isTaskDone = (index: number) => dtaskProgress.value[index] === '1'
+
+const doneCount = computed(() => (duel.value?.dailyTasks || []).filter((_, i) => isTaskDone(i)).length)
+
+const allDone = computed(() => {
+  const total = duel.value?.dailyTasks?.length || 0
+  return total > 0 && doneCount.value >= total
+})
+
+/** 凭证上传即产生当日记录，后端冻结勾选，前端同步禁用 */
+const taskFrozen = computed(() => !!myTodayProofUrl.value)
+
+function syncDtaskProgress() {
+  const pid = duel.value?.myPlanId
+  if (pid && duel.value?.dailyTasks?.length && dtaskProgress.value === '') {
+    dtaskProgress.value = loadTaskProgress(pid)
+  }
+}
+
+async function onToggleTask(index: number) {
+  const pid = duel.value?.myPlanId
+  const total = duel.value?.dailyTasks?.length || 0
+  if (!pid || !total || taskFrozen.value) return
+  const cur = dtaskProgress.value.padEnd(total, '0')
+  const next = cur[index] !== '1'
+  const newProgress = cur.slice(0, index) + (next ? '1' : '0') + cur.slice(index + 1)
+  dtaskProgress.value = newProgress
+  saveTaskProgress(pid, newProgress)
+  try {
+    const vo = await toggleTask(pid, index, next)
+    if (vo.taskProgress) {
+      dtaskProgress.value = vo.taskProgress
+      saveTaskProgress(pid, vo.taskProgress)
+    }
+    // 死斗勾满不自动打卡，后端会带提示文案
+    if (vo.allDone && !vo.autoChecked && vo.message) {
+      uni.showToast({ title: vo.message, icon: 'none' })
+    }
+  } catch {
+    dtaskProgress.value = cur // 失败回滚
+  }
+}
+
 const reviewing = ref(false)
 const rejectTarget = ref<ReviewItemVO | null>(null)
 const rejectReason = ref('')
@@ -225,6 +297,7 @@ async function load() {
   if (!duelId.value) return
   try {
     duel.value = await getDuelDetail(duelId.value)
+    syncDtaskProgress()
     if (isLeader.value && duel.value.status === 1) {
       loadPending()
     }
@@ -483,6 +556,73 @@ const statusClass = (status: number) =>
   color: $pixel-ink-light;
 }
 
+/* 死斗任务清单 */
+.dtasks-card {
+  .dtasks-count {
+    font-size: 24rpx;
+    font-weight: 900;
+    color: $pixel-green-dark;
+  }
+
+  .task-pill {
+    display: flex;
+    align-items: center;
+    gap: 14rpx;
+    @include pixel-block;
+    padding: 16rpx 20rpx;
+    margin-top: 14rpx;
+
+    .pill-check {
+      width: 40rpx;
+      height: 40rpx;
+      @include pixel-block(#fffbeF);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26rpx;
+      font-weight: 900;
+      color: $pixel-green-dark;
+      flex-shrink: 0;
+    }
+
+    .pill-text {
+      flex: 1;
+      font-size: 26rpx;
+      font-weight: 700;
+      color: $pixel-ink;
+    }
+
+    &.done {
+      background: $pixel-green;
+
+      .pill-text {
+        color: #fffbeF;
+        text-decoration: line-through;
+        opacity: 0.9;
+      }
+    }
+
+    &.frozen {
+      opacity: 0.6;
+    }
+  }
+
+  .dtasks-hint {
+    margin-top: 16rpx;
+    @include pixel-block($pixel-yellow);
+    padding: 12rpx 16rpx;
+    font-size: 22rpx;
+    font-weight: 800;
+    color: $pixel-primary-dark;
+
+    &.dim {
+      background: $pixel-card-alt;
+      color: $pixel-ink-light;
+      font-weight: 700;
+    }
+  }
+}
+
 /* 打卡区 */
 .checkin-card {
   .checkin-tip {
@@ -491,7 +631,6 @@ const statusClass = (status: number) =>
     font-size: 22rpx;
     color: $pixel-ink-light;
   }
-
   .proof-upload {
     margin-top: 20rpx;
     display: flex;

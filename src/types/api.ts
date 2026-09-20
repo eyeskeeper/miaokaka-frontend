@@ -193,6 +193,8 @@ export interface TaskToggleVO {
 export interface DuelCreateRequest {
   duelName: string
   duelDesc?: string
+  /** 每日任务清单（≤5 项），复制到成员影子计划；缺省为无清单局 */
+  dailyTasks?: string[]
   /** 100 ~ 5000 */
   depositPerMember: number
   /** 3 ~ 365 */
@@ -231,6 +233,8 @@ export interface DuelVO {
   myStatus: number
   myPlanId: number | null
   pendingCount: number
+  /** 死斗每日任务清单（复制到成员影子计划），无清单局为 null */
+  dailyTasks: string[] | null
   members: MemberVO[]
 }
 
