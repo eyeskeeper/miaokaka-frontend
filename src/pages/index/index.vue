@@ -57,8 +57,8 @@
 
           <view v-if="plan.status === 0 && !plan.todayChecked" class="card-divider" />
 
-          <!-- 每日任务：勾选胶囊，勾满自动打卡；打卡完成后隐藏 -->
-          <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0 && !plan.todayChecked" class="task-pills">
+          <!-- 每日任务：勾选胶囊（死斗计划勾满需上传凭证，不自动打卡；招募中的死斗不可打卡）；打卡完成后隐藏 -->
+          <view v-if="plan.dailyTasks && plan.dailyTasks.length && plan.status === 0 && !plan.todayChecked && !duelRecruiting(plan)" class="task-pills">
             <view
               v-for="(task, ti) in plan.dailyTasks"
               :key="ti"
@@ -71,9 +71,19 @@
             </view>
           </view>
 
+          <!-- 招募中的死斗：开赛前没有打卡，只给入口提示 -->
+          <view
+            v-if="isDuelPlan(plan) && duelRecruiting(plan) && plan.status === 0 && !plan.todayChecked"
+            class="card-foot recruit-foot"
+            @tap.stop="goDuelDetail(plan)"
+          >
+            <text>⏳ 死斗招募中，开赛后开始打卡</text>
+            <text class="foot-arrow">⚔ ›</text>
+          </view>
+
           <!-- 死斗计划：任务勾满提示传凭证（点击去死斗详情） -->
           <view
-            v-if="isDuelPlan(plan) && plan.status === 0 && !plan.todayChecked && plan.dailyTasks?.length && duelTaskAllDone(plan)"
+            v-else-if="isDuelPlan(plan) && plan.status === 0 && !plan.todayChecked && plan.dailyTasks?.length && duelTaskAllDone(plan)"
             class="card-foot proof-foot"
             @tap.stop="goDuelDetail(plan)"
           >
@@ -140,16 +150,19 @@ const battlePlanId = ref<number | null>(null)
 /** 每计划的今日任务位图本地状态（与详情页共享按天缓存） */
 const taskProgress = reactive<Record<number, string>>({})
 
-/** 死斗影子计划：planId -> duelId（DuelVO.myPlanId 反查） */
+/** 死斗影子计划：planId -> {duelId, status}（DuelVO.myPlanId 反查） */
 const duelPlanMap = computed(() => {
-  const map: Record<number, number> = {}
+  const map: Record<number, { duelId: number; status: number }> = {}
   for (const d of duelStore.duels) {
-    if (d.myPlanId) map[d.myPlanId] = d.id
+    if (d.myPlanId) map[d.myPlanId] = { duelId: d.id, status: d.status }
   }
   return map
 })
 
 const isDuelPlan = (plan: PlanVO) => duelPlanMap.value[plan.id] !== undefined
+
+/** 招募中的死斗：开赛前不允许打卡 */
+const duelRecruiting = (plan: PlanVO) => duelPlanMap.value[plan.id]?.status === 0
 
 const duelTaskAllDone = (plan: PlanVO) => {
   const total = plan.dailyTasks?.length ?? 0
@@ -215,6 +228,11 @@ async function onToggleTask(plan: PlanVO, index: number) {
   }
 }
 
+/** 今日待打卡数：排除招募中的死斗（开赛前不可打卡） */
+const todayRemaining = computed(() =>
+  planStore.plans.filter((p) => p.status === 0 && !p.todayChecked && !duelRecruiting(p)).length
+)
+
 const battleBossLevel = computed(
   () => planStore.plans.find((p) => p.id === battlePlanId.value)?.cat?.bossLevel ?? 1
 )
@@ -225,21 +243,21 @@ const todayLabel = `${now.getMonth() + 1}月${now.getDate()}日 周${weekDay}`
 
 const summaryCatSrc = computed(() => {
   const cats = planStore.cats
-  if (planStore.todayRemaining === 0 && cats.length) {
-    return pixelCat(cats[0].cat.catType, 'happy')
+  if (todayRemaining.value === 0 && cats.length) {
+    return pixelCat(cats[0]?.cat.catType ?? 0, 'happy')
   }
   return pixelCat(cats[0]?.cat.catType ?? 0)
 })
 
 const summaryTitle = computed(() => {
   if (planStore.plans.length === 0) return '欢迎来到喵卡卡！'
-  if (planStore.todayRemaining === 0) return '今日全部打卡完成！'
-  return `还有 ${planStore.todayRemaining} 个计划待打卡`
+  if (todayRemaining.value === 0) return '今日全部打卡完成！'
+  return `还有 ${todayRemaining.value} 个计划待打卡`
 })
 
 const summarySub = computed(() => {
   if (planStore.plans.length === 0) return '每建一个计划，就有一只猫精灵加入你的猫窝'
-  if (planStore.todayRemaining === 0) return '猫猫们今晚可以安心睡觉啦～'
+  if (todayRemaining.value === 0) return '猫猫们今晚可以安心睡觉啦～'
   return '打败 BOSS，喂大你的猫！'
 })
 
@@ -263,9 +281,9 @@ function goDetail(id: number) {
 }
 
 function goPlanDetail(plan: PlanVO) {
-  const duelId = duelPlanMap.value[plan.id]
+  const duel = duelPlanMap.value[plan.id]
   // 死斗影子计划直达死斗详情（打卡凭证/任务清单都在那里）
-  if (duelId) {
+  if (duel) {
     goDuelDetail(plan)
     return
   }
@@ -273,9 +291,9 @@ function goPlanDetail(plan: PlanVO) {
 }
 
 function goDuelDetail(plan: PlanVO) {
-  const duelId = duelPlanMap.value[plan.id]
-  if (!duelId) return
-  uni.navigateTo({ url: `/pages/duel/detail?id=${duelId}` })
+  const duel = duelPlanMap.value[plan.id]
+  if (!duel) return
+  uni.navigateTo({ url: `/pages/duel/detail?id=${duel.duelId}` })
 }
 
 function goCreate() {
@@ -542,6 +560,12 @@ function goRanking() {
   &.proof-foot {
     background: $pixel-yellow;
     color: $pixel-primary-dark;
+  }
+
+  // 招募中的死斗 → 开赛前不可打卡
+  &.recruit-foot {
+    background: $pixel-card-alt;
+    color: $pixel-ink-light;
   }
 }
 
