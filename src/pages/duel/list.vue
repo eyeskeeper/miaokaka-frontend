@@ -1,11 +1,6 @@
 <template>
   <view class="duel-list">
-    <!-- 收件箱（拍一拍） -->
-    <view v-if="nudgeCount > 0" class="nudge-banner pixel-card" @tap="openInbox">
-      <image class="pixelated" src="/static/pixel/icon-bell.png" />
-      <text class="nudge-text">收到 {{ nudgeCount }} 条拍一拍催打卡！</text>
-      <text class="nudge-go">查看 ▶</text>
-    </view>
+    <NudgeBubble />
 
     <!-- 列表 -->
     <view class="section-title" v-if="duelStore.duels.length"><text class="pixel-h2">📋 我的死斗</text></view>
@@ -61,22 +56,6 @@
       </view>
     </view>
 
-    <!-- 收件箱弹窗 -->
-    <view v-if="showInbox" class="modal-mask" @tap="showInbox = false">
-      <view class="modal pixel-card" @tap.stop>
-        <text class="pixel-h2">📬 拍一拍收件箱</text>
-        <scroll-view scroll-y class="inbox-scroll">
-          <view v-for="(item, i) in inboxItems" :key="i" class="inbox-item">
-            <text class="inbox-from">{{ item.fromUserName }}</text>
-            <text class="inbox-text">{{ item.text }}</text>
-            <text class="inbox-time">{{ item.time }}</text>
-          </view>
-        </scroll-view>
-        <text class="inbox-tip">已读即清空（当日有效）</text>
-        <button class="pixel-btn-sm" @tap="showInbox = false">知道了</button>
-      </view>
-    </view>
-
     <!-- 模板编辑弹窗 -->
     <view v-if="showTemplate" class="modal-mask" @tap="showTemplate = false">
       <view class="modal pixel-card" @tap.stop>
@@ -94,20 +73,17 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
-import { getMyNudges, getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
+import { getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
-import type { NudgeItemVO } from '@/types/api'
 
 const duelStore = useDuelStore()
 const userStore = useUserStore()
 
-const nudgeCount = ref(0)
-const inboxItems = ref<NudgeItemVO[]>([])
-const showInbox = ref(false)
 const showTemplate = ref(false)
 const templateText = ref('')
 const effectiveText = ref('')
@@ -118,23 +94,10 @@ const usingCode = ref(false)
 onShow(async () => {
   if (!ensureLogin()) return
   duelStore.fetchDuels(true)
-  // 静默查收拍一拍（读取即消费，先存本地展示）
-  try {
-    const box = await getMyNudges()
-    nudgeCount.value = box.count
-    inboxItems.value = box.items || []
-  } catch {
-    // 静默
-  }
 })
 
 const statusClass = (status: number) =>
   ({ 0: 'st-recruiting', 1: 'st-ongoing', 2: 'st-ended' } as Record<number, string>)[status] ?? ''
-
-function openInbox() {
-  showInbox.value = true
-  nudgeCount.value = 0
-}
 
 function goDetail(id: number) {
   uni.navigateTo({ url: `/pages/duel/detail?id=${id}` })
@@ -207,29 +170,8 @@ async function saveTemplate() {
   gap: 20rpx;
 }
 
-.nudge-banner {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  background: $pixel-yellow;
-
-  image {
-    width: 40rpx;
-    height: 40rpx;
-  }
-
-  .nudge-text {
-    flex: 1;
-    font-size: 26rpx;
-    font-weight: 800;
-    color: $pixel-ink;
-  }
-
-  .nudge-go {
-    font-size: 24rpx;
-    font-weight: 800;
-    color: $pixel-primary-dark;
-  }
+.section-title {
+  margin-top: 8rpx;
 }
 
 .duel-card {
@@ -375,45 +317,6 @@ async function saveTemplate() {
   width: 100%;
   max-width: 600rpx;
 
-  .inbox-scroll {
-    max-height: 50vh;
-    margin-top: 20rpx;
-  }
-
-  .inbox-item {
-    @include pixel-block;
-    padding: 16rpx 20rpx;
-    margin-bottom: 12rpx;
-    display: flex;
-    flex-direction: column;
-    gap: 6rpx;
-
-    .inbox-from {
-      font-size: 24rpx;
-      font-weight: 900;
-      color: $pixel-ink;
-    }
-
-    .inbox-text {
-      font-size: 26rpx;
-      color: $pixel-primary-dark;
-      font-weight: 700;
-    }
-
-    .inbox-time {
-      font-size: 18rpx;
-      color: $pixel-ink-light;
-    }
-  }
-
-  .inbox-tip {
-    display: block;
-    margin: 16rpx 0;
-    font-size: 20rpx;
-    color: $pixel-ink-light;
-    text-align: center;
-  }
-
   .tpl-input {
     margin-top: 24rpx;
   }
@@ -451,7 +354,3 @@ async function saveTemplate() {
   color: $uni-text-color-placeholder;
 }
 </style>
-
-.section-title {
-  margin-top: 8rpx;
-}

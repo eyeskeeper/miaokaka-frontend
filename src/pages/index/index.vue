@@ -1,5 +1,6 @@
 <template>
   <view class="home">
+    <NudgeBubble />
     <!-- 顶部状态条 -->
     <view class="top-bar pixel-card">
       <view class="top-left">
@@ -105,6 +106,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { computed, reactive, ref } from 'vue'
 import { toggleTask } from '@/api/plan'
 import { checkIn } from '@/api/checkin'

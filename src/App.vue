@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onLaunch, onShow } from "@dcloudio/uni-app";
+import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
 import { useUserStore } from "@/stores/user";
+import { startPolling, stopPolling } from "@/utils/poll";
 
 onLaunch(() => {
   const userStore = useUserStore();
@@ -8,7 +9,13 @@ onLaunch(() => {
     userStore.fetchMe();
   }
 });
-onShow(() => {});
+onShow(() => {
+  // 拍一拍气泡 + 通知角标轮询（未登录不启动）
+  startPolling();
+});
+onHide(() => {
+  stopPolling();
+});
 </script>
 
 <style lang="scss">

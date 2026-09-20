@@ -1,5 +1,6 @@
 <template>
   <view class="profile">
+    <NudgeBubble />
     <!-- 用户卡 -->
     <view class="user-card pixel-card">
       <view class="avatar">{{ userStore.displayName.slice(0, 1) }}</view>
@@ -25,6 +26,14 @@
 
     <!-- 功能入口 -->
     <view class="menu pixel-card">
+      <view class="menu-row" @tap="goMessages">
+        <text class="menu-icon">📬</text>
+        <text class="menu-text">消息</text>
+        <text v-if="notifyStore.unread > 0" class="menu-badge">
+          {{ notifyStore.unread > 99 ? '99+' : notifyStore.unread }}
+        </text>
+        <text class="menu-arrow">▶</text>
+      </view>
       <view class="menu-row" @tap="goWallet">
         <text class="menu-icon">🪙</text>
         <text class="menu-text">喵币钱包</text>
@@ -62,12 +71,15 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { APP_NAME } from '@/config'
+import { useNotificationStore } from '@/stores/notification'
 import { usePlanStore } from '@/stores/plan'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 const planStore = usePlanStore()
+const notifyStore = useNotificationStore()
 
 onShow(() => {
   if (!userStore.isLoggedIn) {
@@ -76,7 +88,12 @@ onShow(() => {
   }
   userStore.fetchMe()
   planStore.fetchPlans()
+  notifyStore.refreshUnread()
 })
+
+function goMessages() {
+  uni.navigateTo({ url: '/pages/profile/messages' })
+}
 
 function goWallet() {
   uni.navigateTo({ url: '/pages/wallet/wallet' })
@@ -212,6 +229,14 @@ function confirmLogout() {
 
     .logout-text {
       color: $pixel-red;
+    }
+
+    .menu-badge {
+      @include pixel-block($pixel-red);
+      padding: 2rpx 12rpx;
+      font-size: 20rpx;
+      font-weight: 900;
+      color: #fffbef;
     }
 
     .menu-arrow {

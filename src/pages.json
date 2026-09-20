@@ -25,6 +25,12 @@
       }
     },
     {
+      "path": "pages/profile/messages",
+      "style": {
+        "navigationBarTitleText": "消息中心"
+      }
+    },
+    {
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "登录",

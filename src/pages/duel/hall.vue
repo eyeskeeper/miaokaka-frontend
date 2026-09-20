@@ -1,5 +1,6 @@
 <template>
   <view class="duel-hall">
+    <NudgeBubble />
     <!-- 查询栏：ID / 名称 / 描述 -->
     <view class="search-bar pixel-card">
       <view class="search-row">
@@ -84,6 +85,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { ensureLogin } from '@/utils/auth'
 import { computed, ref } from 'vue'
 import { applyJoinDuel, getRecruitingHall, joinDuel as joinDuelApi } from '@/api/duel'

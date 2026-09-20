@@ -1,5 +1,6 @@
 <template>
   <view class="den">
+    <NudgeBubble />
     <!-- 总览 -->
     <view class="overview pixel-card">
       <text class="pixel-h2">🏠 猫窝总览</text>
@@ -59,6 +60,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { ensureLogin } from '@/utils/auth'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { usePlanStore } from '@/stores/plan'

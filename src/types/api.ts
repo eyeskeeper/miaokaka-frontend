@@ -271,6 +271,29 @@ export interface NudgeInboxVO {
   items: NudgeItemVO[]
 }
 
+// ===== 通知消息 =====
+
+/** 用户通知（拉取式持久消息，type 区分业务） */
+export interface NotificationVO {
+  id: number
+  /** 见后端 NotificationConstant：1=被移除出死斗，后续扩展 */
+  type: number
+  title: string
+  content: string
+  /** 关联业务 id（死斗 id 等），可空 */
+  refId: number | null
+  isRead: boolean
+  createTime: string
+}
+
+export interface NotificationPageVO {
+  records: NotificationVO[]
+  total: number
+  current: number
+  size: number
+  pages: number
+}
+
 // ===== 邀请 / 加入申请 =====
 
 /** 生成邀请海报（每成员每死斗固定一个邀请码） */
