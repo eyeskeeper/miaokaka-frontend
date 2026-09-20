@@ -195,12 +195,18 @@ export interface DuelCreateRequest {
   duelDesc?: string
   /** 每日任务清单（≤5 项），复制到成员影子计划；缺省为无清单局 */
   dailyTasks?: string[]
+  /** 2 ~ 50 */
+  maxMembers: number
+  /** 隐藏局：不进招募大厅，仅组号/邀请海报可发现 */
+  hidden?: boolean
   /** 100 ~ 5000 */
   depositPerMember: number
   /** 3 ~ 365 */
   totalDays: number
-  /** yyyy-MM-dd，缺省明天开赛 */
+  /** yyyy-MM-dd，最早为明天 */
   startDate?: string
+  /** 0 自由加入 1 需组长审核 */
+  joinMode?: number
 }
 
 export interface MemberVO {
@@ -220,6 +226,10 @@ export interface DuelVO {
   leaderId: number
   /** 0 自由加入 1 需审批 */
   joinMode: number
+  /** 隐藏局：不进招募大厅，仅组号/邀请海报可发现 */
+  hidden: boolean
+  /** 人数上限（2~50） */
+  maxMembers: number
   depositPerMember: number
   totalDays: number
   startDate: string
@@ -380,6 +390,13 @@ export interface JoinApplicationReviewRequest {
   requestId: number
   approve: boolean
   remark?: string
+}
+
+/** 一键通过全部加入申请的结果（到人数上限即停，剩余保持待审） */
+export interface ApplicationsApproveAllVO {
+  approved: number
+  rejected: number
+  skipped: number
 }
 
 // ===== 喵币钱包 =====

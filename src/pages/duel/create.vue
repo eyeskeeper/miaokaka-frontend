@@ -48,6 +48,48 @@
       </view>
 
       <view class="form-item">
+        <text class="form-label">加入方式 *</text>
+        <view class="mode-row">
+          <view class="mode-chip" :class="{ active: form.joinMode === 0 }" @tap="form.joinMode = 0">
+            <text class="mode-icon">🚪</text>
+            <view class="mode-info">
+              <text class="mode-name">直接加入</text>
+              <text class="mode-desc">扫码/搜组号即入</text>
+            </view>
+          </view>
+          <view class="mode-chip" :class="{ active: form.joinMode === 1 }" @tap="form.joinMode = 1">
+            <text class="mode-icon">🛡</text>
+            <view class="mode-info">
+              <text class="mode-name">需组长审核</text>
+              <text class="mode-desc">同意申请后才入组</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">人数上限（2~50 人）*</text>
+        <view class="deposit-row">
+          <button class="pixel-btn-sm step-btn" @tap="stepMaxMembers(-1)">－</button>
+          <input v-model="maxMembersText" class="pixel-input dep-input" type="number" :maxlength="2" />
+          <button class="pixel-btn-sm-green step-btn" @tap="stepMaxMembers(1)">＋</button>
+        </view>
+        <text class="field-tip">满员后无法再加入，招满即止</text>
+      </view>
+
+      <view class="form-item">
+        <view class="hide-row" @tap="form.hidden = !form.hidden">
+          <view class="hide-info">
+            <text class="form-label">🔒 隐藏死斗</text>
+            <text class="hide-desc">不进招募大厅，仅可通过组号/邀请海报发现</text>
+          </view>
+          <view class="hide-switch" :class="{ on: form.hidden }">
+            <view class="switch-knob" />
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
         <text class="form-label">每人押金（100~5000 喵币）*</text>
         <view class="deposit-row">
           <button class="pixel-btn-sm step-btn" @tap="stepDeposit(-100)">－</button>
@@ -63,8 +105,8 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">开始日期（默认明天）</text>
-        <picker mode="date" :value="form.startDate" :start="todayStr" @change="onDateChange">
+        <text class="form-label">开始日期（最早明天）</text>
+        <picker mode="date" :value="form.startDate" :start="tomorrowStr" @change="onDateChange">
           <view class="pixel-input picker-text">{{ form.startDate || '明天开始' }}</view>
         </picker>
       </view>
@@ -93,7 +135,9 @@ const duelStore = useDuelStore()
 const form = reactive({
   duelName: '',
   duelDesc: '',
-  startDate: ''
+  startDate: '',
+  joinMode: 0,
+  hidden: false
 })
 
 /** 每日任务清单（≤5 项，空串在提交时过滤） */
@@ -108,10 +152,17 @@ onShow(() => {
 
 const depositText = ref('100')
 const daysText = ref('21')
+const maxMembersText = ref('10')
 const submitting = ref(false)
 
-const todayStr = new Date().toISOString().slice(0, 10)
+const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 const deposit = computed(() => Math.max(0, Number(depositText.value) || 0))
+const maxMembers = computed(() => Math.max(0, Number(maxMembersText.value) || 0))
+
+function stepMaxMembers(delta: number) {
+  const next = Math.min(50, Math.max(2, maxMembers.value + delta))
+  maxMembersText.value = String(next)
+}
 
 function addTask() {
   if (tasks.value.length < 5) tasks.value.push('')
@@ -158,6 +209,7 @@ async function submit() {
   const name = form.duelName.trim()
   const dep = Number(depositText.value) || 0
   const days = Number(daysText.value) || 0
+  const maxMembersNum = Number(maxMembersText.value) || 0
   const dailyTasks = tasks.value.map((t) => t.trim()).filter(Boolean)
   if (!name) {
     uni.showToast({ title: '给死斗起个名字', icon: 'none' })
@@ -165,6 +217,10 @@ async function submit() {
   }
   if (dailyTasks.length > 5) {
     uni.showToast({ title: '每日任务最多 5 项', icon: 'none' })
+    return
+  }
+  if (maxMembersNum < 2 || maxMembersNum > 50) {
+    uni.showToast({ title: '人数上限须在 2~50 之间', icon: 'none' })
     return
   }
   if (dep < 100 || dep > 5000) {
@@ -181,6 +237,9 @@ async function submit() {
       duelName: name,
       duelDesc: form.duelDesc.trim() || undefined,
       dailyTasks: dailyTasks.length ? dailyTasks : undefined,
+      maxMembers: maxMembersNum,
+      hidden: form.hidden || undefined,
+      joinMode: form.joinMode,
       depositPerMember: dep,
       totalDays: days,
       startDate: form.startDate || undefined
@@ -323,6 +382,107 @@ async function submit() {
   .dep-input {
     flex: 1;
     text-align: center;
+  }
+}
+
+.mode-row {
+  display: flex;
+  gap: 16rpx;
+
+  .mode-chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    @include pixel-block;
+    padding: 16rpx 18rpx;
+
+    .mode-icon {
+      font-size: 32rpx;
+    }
+
+    .mode-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+      min-width: 0;
+    }
+
+    .mode-name {
+      font-size: 26rpx;
+      font-weight: 900;
+      color: $pixel-ink;
+    }
+
+    .mode-desc {
+      font-size: 18rpx;
+      color: $pixel-ink-light;
+    }
+
+    &.active {
+      background: $pixel-green;
+      border-color: $pixel-ink;
+
+      .mode-name {
+        color: #fffbef;
+      }
+
+      .mode-desc {
+        color: rgba(255, 251, 239, 0.8);
+      }
+    }
+  }
+}
+
+.hide-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  @include pixel-block;
+  padding: 16rpx 20rpx;
+
+  .hide-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6rpx;
+
+    .form-label {
+      margin-bottom: 0;
+    }
+  }
+
+  .hide-desc {
+    font-size: 20rpx;
+    color: $pixel-ink-light;
+  }
+
+  .hide-switch {
+    width: 84rpx;
+    height: 44rpx;
+    @include pixel-block($pixel-card-alt);
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.15s;
+
+    .switch-knob {
+      position: absolute;
+      top: 4rpx;
+      left: 4rpx;
+      width: 30rpx;
+      height: 30rpx;
+      background: $pixel-ink-light;
+      transition: all 0.15s;
+    }
+
+    &.on {
+      background: $pixel-green;
+
+      .switch-knob {
+        left: calc(100% - 34rpx);
+        background: #fffbef;
+      }
+    }
   }
 }
 

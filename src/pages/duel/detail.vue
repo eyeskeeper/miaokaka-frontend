@@ -4,7 +4,10 @@
     <view class="head-card pixel-card">
       <view class="flex-between">
         <text class="duel-name">⚔️ {{ duel.duelName }}</text>
-        <text class="pixel-tag" :class="statusClass(duel.status)">{{ duelStatusLabel(duel.status) }}</text>
+        <view class="flex-row">
+          <text v-if="duel.hidden" class="pixel-tag hidden-tag">🔒 隐藏</text>
+          <text class="pixel-tag" :class="statusClass(duel.status)">{{ duelStatusLabel(duel.status) }}</text>
+        </view>
       </view>
       <text v-if="duel.duelDesc" class="duel-desc">{{ duel.duelDesc }}</text>
       <view v-if="duel.status === 0 && isMember" class="invite-row" @tap.stop="openInvite">
@@ -13,7 +16,7 @@
       </view>
       <view class="head-stats">
         <view class="hs"><text class="hs-num">{{ duel.totalPool }}</text><text class="hs-label">奖池喵币</text></view>
-        <view class="hs"><text class="hs-num">{{ duel.memberCount }}</text><text class="hs-label">成员</text></view>
+        <view class="hs"><text class="hs-num">{{ duel.memberCount }}/{{ duel.maxMembers }}</text><text class="hs-label">成员</text></view>
         <view class="hs"><text class="hs-num">{{ duel.totalDays }}</text><text class="hs-label">总天数</text></view>
         <view class="hs"><text class="hs-num">{{ duel.depositPerMember }}</text><text class="hs-label">每人押金</text></view>
       </view>
@@ -91,7 +94,10 @@
     <view v-if="isLeader && duel.status === 0" class="apply-card pixel-card">
       <view class="flex-between">
         <text class="pixel-h2">📨 加入申请</text>
-        <button class="pixel-btn-sm-green" @tap="loadJoinRequests">刷新</button>
+        <view class="apply-head-btns">
+          <button v-if="joinRequests.length > 0" class="pixel-btn-sm-green" :loading="approvingAll" @tap="onApproveAll">⚡ 一键通过</button>
+          <button class="pixel-btn-sm" @tap="loadJoinRequests">刷新</button>
+        </view>
       </view>
       <view v-if="joinRequests.length === 0" class="apply-empty">暂无加入申请</view>
       <view v-for="item in joinRequests" :key="item.id" class="apply-row">
@@ -182,6 +188,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import {
+  approveAllApplications,
   getDuelDetail,
   getInvitePoster,
   getJoinApplications,
@@ -209,6 +216,7 @@ const duel = ref<DuelVO | null>(null)
 const pendingList = ref<ReviewItemVO[]>([])
 const myTodayProofUrl = ref('')
 const joining = ref(false)
+const approvingAll = ref(false)
 const quitting = ref(false)
 const nudgingId = ref<number | null>(null)
 
@@ -479,6 +487,29 @@ function reviewApply(item: JoinRequestVO, approve: boolean) {
     })
 }
 
+async function onApproveAll() {
+  if (approvingAll.value) return
+  const ok = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '一键通过',
+      content: `将全部 ${joinRequests.value.length} 位申请者加入死斗并扣除押金，确定？`,
+      success: (res) => resolve(!!res.confirm)
+    })
+  })
+  if (!ok) return
+  approvingAll.value = true
+  try {
+    const r = await approveAllApplications(duelId.value)
+    uni.showToast({ title: `通过 ${r.approved}，拒绝 ${r.rejected}，跳过 ${r.skipped}`, icon: 'none' })
+    loadJoinRequests()
+    load()
+  } catch {
+    // 统一提示
+  } finally {
+    approvingAll.value = false
+  }
+}
+
 function previewImage(url: string) {
   uni.previewImage({ urls: [url] })
 }
@@ -499,6 +530,11 @@ const statusClass = (status: number) =>
   .duel-name {
     @include pixel-title;
     font-size: 34rpx;
+  }
+
+  .hidden-tag {
+    background: $pixel-ink;
+    color: #fffbef;
   }
 
   .duel-desc {
@@ -886,6 +922,11 @@ const statusClass = (status: number) =>
 
 /* 加入申请 */
 .apply-card {
+  .apply-head-btns {
+    display: flex;
+    gap: 12rpx;
+  }
+
   .apply-empty {
     margin-top: 14rpx;
     text-align: center;

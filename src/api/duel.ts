@@ -1,4 +1,5 @@
 import type {
+  ApplicationsApproveAllVO,
   DuelCreateRequest,
   DuelVO,
   InviteInfoVO,
@@ -68,6 +69,10 @@ export const getJoinApplications = (duelId: number) =>
 /** 组长：审批加入申请 */
 export const reviewJoinApplication = (duelId: number, data: JoinApplicationReviewRequest) =>
   post<unknown>(`/duel/${duelId}/applications/review`, data)
+
+/** 组长：一键通过全部加入申请（到人数上限即停，剩余保持待审） */
+export const approveAllApplications = (duelId: number) =>
+  post<ApplicationsApproveAllVO>(`/duel/${duelId}/applications/approve-all`)
 
 /** 招募大厅：所有招募中的死斗（后端接口待上线，未就绪时静默降级为空列表） */
 export const getRecruitingHall = (pageNum = 1, pageSize = 20) =>
