@@ -216,6 +216,8 @@ export interface DuelVO {
   duelName: string
   duelDesc: string | null
   leaderId: number
+  /** 0 自由加入 1 需审批 */
+  joinMode: number
   depositPerMember: number
   totalDays: number
   startDate: string

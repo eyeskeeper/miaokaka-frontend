@@ -365,21 +365,6 @@ async function loadJoinRequests() {
   }
 }
 
-async function reviewJoin(item: JoinRequestVO, approve: boolean) {
-  if (joining.value) return
-  joining.value = true
-  try {
-    await reviewJoinApplication(duelId.value, { requestId: item.id, approve })
-    uni.showToast({ title: approve ? '已通过，押金已扣' : '已驳回', icon: 'none' })
-    loadJoinRequests()
-    load()
-  } catch {
-    // 统一提示
-  } finally {
-    joining.value = false
-  }
-}
-
 function openInvite() {
   if (inviteLoading.value) return
   inviteLoading.value = true

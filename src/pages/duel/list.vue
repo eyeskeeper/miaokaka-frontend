@@ -20,6 +20,9 @@
         <view v-if="duel.pendingCount > 0 && duel.myRole === 'leader'" class="meta-chip pending">
           <text>待审核 {{ duel.pendingCount }}</text>
         </view>
+        <view v-if="applyCounts[duel.id]" class="meta-chip apply-chip">
+          <text>📨 {{ applyCounts[duel.id] }} 条加入申请</text>
+        </view>
       </view>
       <view class="flex-between duel-foot">
         <text class="duel-role">{{ duel.myRole === 'leader' ? '👑 我是组长' : '🛡 组员' }} · 押金 {{ duel.depositPerMember }}</text>
@@ -76,7 +79,7 @@ import { onShow } from '@dcloudio/uni-app'
 import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { ensureLogin } from '@/utils/auth'
 import { ref } from 'vue'
-import { getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
+import { getJoinApplications, getNudgeTemplate, saveNudgeTemplate, useInviteCode } from '@/api/duel'
 import { duelStatusLabel } from '@/constants/pixel'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
@@ -90,11 +93,27 @@ const effectiveText = ref('')
 const showCodeInput = ref(false)
 const codeInput = ref('')
 const usingCode = ref(false)
+/** 我组长的招募中审批制死斗 → 待处理加入申请数（列表上的审核入口提示） */
+const applyCounts = ref<Record<number, number>>({})
 
 onShow(async () => {
   if (!ensureLogin()) return
-  duelStore.fetchDuels(true)
+  duelStore.fetchDuels(true).then(loadApplyCounts)
 })
+
+/** 只查我组长的招募中审批制死斗，数量很小 */
+function loadApplyCounts() {
+  applyCounts.value = {}
+  duelStore.duels
+    .filter((d) => d.myRole === 'leader' && d.status === 0 && d.joinMode === 1)
+    .forEach((d) => {
+      getJoinApplications(d.id)
+        .then((list) => {
+          applyCounts.value[d.id] = list?.length || 0
+        })
+        .catch(() => {})
+    })
+}
 
 const statusClass = (status: number) =>
   ({ 0: 'st-recruiting', 1: 'st-ongoing', 2: 'st-ended' } as Record<number, string>)[status] ?? ''
@@ -219,6 +238,11 @@ async function saveTemplate() {
     &.pending {
       background: $pixel-red;
       color: #fff;
+    }
+
+    // 组长的加入申请入口提示（点击卡片直达详情审核区）
+    &.apply-chip {
+      background: $pixel-yellow;
     }
   }
 
