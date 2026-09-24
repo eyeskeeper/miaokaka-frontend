@@ -24,3 +24,4 @@ dist
 
 # 临时调试文件
 scripts/_*.txt
+.zcodeignore
