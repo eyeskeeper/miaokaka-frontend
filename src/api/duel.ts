@@ -77,3 +77,21 @@ export const approveAllApplications = (duelId: number) =>
 /** 招募大厅：招募中+进行中的死斗分页（隐藏局除外）；分页字段为 current/pageSize */
 export const getRecruitingHall = (current = 1, pageSize = 20) =>
   get<HallPageVO>('/duel/hall', { current, pageSize }, true)
+
+// ===== 组长治理 / 弹劾 =====
+
+/** 组长移除成员：招募中=全额退款；进行中=退剩余天数份额，缺勤份额入奖池 */
+export const removeMember = (duelId: number, targetUserId: number) =>
+  post<DuelVO>(`/duel/${duelId}/members/${targetUserId}/remove`)
+
+/** 组长让渡组长：目标须为正式成员，即时生效 */
+export const transferLeader = (duelId: number, targetUserId: number) =>
+  post<DuelVO>(`/duel/${duelId}/transfer/${targetUserId}`)
+
+/** 发起弹劾（仅进行中死斗的正式成员，非组长；原因 ≤20 字；发起人自动记 1 张弹劾票） */
+export const impeachLeader = (duelId: number, reason: string) =>
+  post<DuelVO>(`/duel/${duelId}/impeach`, { reason })
+
+/** 弹劾投票：vote 0=维持 1=弹劾；一票定死不可改；弹劾票严格过半即成功 */
+export const voteImpeachment = (duelId: number, impeachmentId: number, vote: 0 | 1) =>
+  post<DuelVO>(`/duel/${duelId}/impeachment/vote`, { impeachmentId, vote })

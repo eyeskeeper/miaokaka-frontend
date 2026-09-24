@@ -80,3 +80,6 @@ export const post = <T>(url: string, data?: Record<string, any>, quiet?: boolean
 
 export const put = <T>(url: string, data?: Record<string, any>, quiet?: boolean) =>
   request<T>({ url, method: 'PUT', data, quiet })
+
+export const del = <T>(url: string, data?: Record<string, any>, quiet?: boolean) =>
+  request<T>({ url, method: 'DELETE', data, quiet })

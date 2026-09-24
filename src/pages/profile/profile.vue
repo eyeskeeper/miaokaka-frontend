@@ -49,6 +49,11 @@
         <text class="menu-text">我的猫窝</text>
         <text class="menu-arrow">▶</text>
       </view>
+      <view v-if="isAdmin" class="menu-row" @tap="goAdminUsers">
+        <text class="menu-icon">🛡</text>
+        <text class="menu-text">用户管理</text>
+        <text class="menu-arrow">▶</text>
+      </view>
     </view>
 
     <!-- 其他 -->
@@ -70,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import NudgeBubble from '@/components/nudge-bubble/nudge-bubble.vue'
 import { APP_NAME } from '@/config'
@@ -80,6 +86,8 @@ import { useUserStore } from '@/stores/user'
 const userStore = useUserStore()
 const planStore = usePlanStore()
 const notifyStore = useNotificationStore()
+
+const isAdmin = computed(() => userStore.userInfo?.userRole === 'admin')
 
 onShow(() => {
   if (!userStore.isLoggedIn) {
@@ -105,6 +113,10 @@ function goRanking() {
 
 function goDen() {
   uni.switchTab({ url: '/pages/cat/den' })
+}
+
+function goAdminUsers() {
+  uni.navigateTo({ url: '/pages/admin/users' })
 }
 
 function showAbout() {

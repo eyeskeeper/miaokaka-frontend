@@ -133,7 +133,27 @@
         >
           拍一拍
         </button>
+        <template v-if="isLeader && m.userId !== meId()">
+          <button class="pixel-btn-sm" :loading="transferTarget === m.userId" @tap="onTransfer(m)">让渡</button>
+          <button class="pixel-btn-sm-red" :loading="removingId === m.userId" @tap="onRemove(m)">移除</button>
+        </template>
       </view>
+    </view>
+
+    <!-- 弹劾（进行中死斗，全员可见进度） -->
+    <view v-if="duel.impeachment" class="impeach-card pixel-card">
+      <text class="pixel-h2">⚖ 组长弹劾进行中</text>
+      <text class="impeach-reason">「{{ duel.impeachment.reason }}」— 发起人：{{ duel.impeachment.initiatorName }}</text>
+      <text class="impeach-meta">
+        弹劾 {{ duel.impeachment.impeachCount }} · 维持 {{ duel.impeachment.maintainCount }}
+        （基数 {{ duel.impeachment.totalCount }}，弹劾票严格过半即成功）
+      </text>
+      <text class="impeach-meta">截止：{{ formatTime(duel.impeachment.expireTime) }}</text>
+      <view v-if="isMember && duel.myImpeachVote === null" class="impeach-btns">
+        <button v-if="!isLeader" class="pixel-btn-sm-red" :loading="voting" @tap="doVote(1)">🗳 投弹劾</button>
+        <button class="pixel-btn-sm" :loading="voting" @tap="doVote(0)">🛡 投维持</button>
+      </view>
+      <text v-else-if="isMember" class="impeach-meta">我已投：{{ duel.myImpeachVote === 1 ? '弹劾' : '维持' }}</text>
     </view>
 
     <!-- 操作区 -->
@@ -143,6 +163,13 @@
       </button>
       <button v-if="duel.status === 0 && isMember && duel.myRole !== 'leader'" class="pixel-btn-sm-red" :loading="quitting" @tap="doQuit">
         退出并退款
+      </button>
+      <button
+        v-if="isMember && !isLeader && duel.status === 1 && !duel.impeachment"
+        class="pixel-btn-sm-red"
+        @tap="openImpeach"
+      >
+        ⚖ 发起弹劾组长
       </button>
     </view>
 
@@ -179,6 +206,25 @@
       </view>
     </view>
 
+    <!-- 发起弹劾弹窗 -->
+    <view v-if="impeachVisible" class="modal-mask" @tap="impeachVisible = false">
+      <view class="modal pixel-card" @tap.stop>
+        <text class="pixel-h2">发起弹劾（原因 ≤20 字）</text>
+        <input
+          v-model="impeachReason"
+          class="pixel-input reject-input"
+          :maxlength="20"
+          placeholder="例如：长期不审核打卡凭证"
+          placeholder-class="pixel-placeholder"
+        />
+        <text class="impeach-note">发起后 24 小时内全员投票；弹劾票严格过半，你将成为新组长</text>
+        <view class="modal-btns">
+          <button class="pixel-btn-sm" @tap="impeachVisible = false">取消</button>
+          <button class="pixel-btn-sm-red" :loading="impeaching" @tap="doImpeach">发起弹劾</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 战斗结算（凭证审核通过时展示被审核者的结算由后端推送，此处仅普通提示） -->
   </view>
 </template>
@@ -193,11 +239,15 @@ import {
   getInvitePoster,
   getJoinApplications,
   getPendingReviews,
+  impeachLeader,
   joinDuel,
   nudgeMember,
   quitDuel,
+  removeMember,
   reviewJoinApplication,
-  reviewProof
+  reviewProof,
+  transferLeader,
+  voteImpeachment
 } from '@/api/duel'
 import { BASE_URL } from '@/config'
 import { duelStatusLabel, memberStatusLabel } from '@/constants/pixel'
@@ -219,6 +269,12 @@ const joining = ref(false)
 const approvingAll = ref(false)
 const quitting = ref(false)
 const nudgingId = ref<number | null>(null)
+const removingId = ref<number | null>(null)
+const transferTarget = ref<number | null>(null)
+const voting = ref(false)
+const impeachVisible = ref(false)
+const impeaching = ref(false)
+const impeachReason = ref('')
 
 // ===== 死斗任务清单（影子计划任务位图，与首页共享按天缓存） =====
 const dtaskProgress = ref('')
@@ -436,6 +492,97 @@ async function doNudge(m: MemberVO) {
   } finally {
     nudgingId.value = null
   }
+}
+
+// ===== 组长治理：移除 / 让渡 =====
+
+function confirmModal(title: string, content: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    uni.showModal({ title, content, success: (r) => resolve(!!r.confirm) })
+  })
+}
+
+async function onRemove(m: MemberVO) {
+  if (removingId.value) return
+  const done = await confirmModal(
+    '移除成员',
+    `确定移除「${m.userName}」？招募中全额退款；进行中按剩余天数退款，缺勤份额入奖池`
+  )
+  if (!done) return
+  removingId.value = m.userId
+  try {
+    duel.value = await removeMember(duelId.value, m.userId)
+    duelStore.applyDuel(duel.value!)
+    uni.showToast({ title: '已移除', icon: 'none' })
+  } catch {
+    // 统一提示
+  } finally {
+    removingId.value = null
+  }
+}
+
+async function onTransfer(m: MemberVO) {
+  if (transferTarget.value) return
+  const done = await confirmModal(
+    '让渡组长',
+    `让渡组长给「${m.userName}」？你将变为普通成员，审核/移除/一键通过等全部组长权限随之转移`
+  )
+  if (!done) return
+  transferTarget.value = m.userId
+  try {
+    duel.value = await transferLeader(duelId.value, m.userId)
+    duelStore.applyDuel(duel.value!)
+    uni.showToast({ title: '已让渡，对方成为新组长', icon: 'none' })
+  } catch {
+    // 统一提示
+  } finally {
+    transferTarget.value = null
+  }
+}
+
+// ===== 弹劾 =====
+
+function openImpeach() {
+  impeachReason.value = ''
+  impeachVisible.value = true
+}
+
+async function doImpeach() {
+  const reason = impeachReason.value.trim()
+  if (!reason) {
+    uni.showToast({ title: '请填写弹劾原因', icon: 'none' })
+    return
+  }
+  impeaching.value = true
+  try {
+    duel.value = await impeachLeader(duelId.value, reason)
+    duelStore.applyDuel(duel.value!)
+    impeachVisible.value = false
+    uni.showToast({ title: '已发起弹劾，等待全员投票', icon: 'none' })
+  } catch {
+    // 统一提示
+  } finally {
+    impeaching.value = false
+  }
+}
+
+async function doVote(vote: 0 | 1) {
+  const impeachment = duel.value?.impeachment
+  if (!impeachment || voting.value) return
+  voting.value = true
+  try {
+    duel.value = await voteImpeachment(duelId.value, impeachment.id, vote)
+    duelStore.applyDuel(duel.value!)
+    uni.showToast({ title: vote === 1 ? '已投弹劾票' : '已投维持票', icon: 'none' })
+  } catch {
+    // 统一提示（组长投弹劾票等由后端拦截）
+  } finally {
+    voting.value = false
+  }
+}
+
+function formatTime(value: string) {
+  return (value || '').replace('T', ' ').slice(5, 16)
 }
 
 async function loadJoinRequests() {
@@ -976,6 +1123,41 @@ const statusClass = (status: number) =>
   button {
     flex: 1;
   }
+}
+
+.impeach-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  border-color: $pixel-red;
+
+  .impeach-reason {
+    font-size: 28rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
+
+  .impeach-meta {
+    font-size: 24rpx;
+    color: $pixel-ink-light;
+  }
+
+  .impeach-btns {
+    display: flex;
+    gap: 16rpx;
+    margin-top: 8rpx;
+
+    button {
+      flex: 1;
+    }
+  }
+}
+
+.impeach-note {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: $pixel-ink-light;
 }
 
 .pixel-btn-sm-red {

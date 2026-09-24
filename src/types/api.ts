@@ -219,6 +219,21 @@ export interface MemberVO {
   status: number
 }
 
+/** 进行中的弹劾（已结束的不下发） */
+export interface ImpeachmentVO {
+  id: number
+  initiatorId: number
+  initiatorName: string
+  /** 弹劾原因（20 字内） */
+  reason: string
+  impeachCount: number
+  maintainCount: number
+  /** 投票基数（当前正式成员数，弹劾票严格过半即成功） */
+  totalCount: number
+  /** 投票截止时间 */
+  expireTime: string
+}
+
 export interface DuelVO {
   id: number
   duelName: string
@@ -243,6 +258,12 @@ export interface DuelVO {
   myStatus: number
   myPlanId: number | null
   pendingCount: number
+  /** 我的加入申请状态：null 无申请 / 0 待审 / 1 已通过 / 2 已拒绝 */
+  myApplyStatus: number | null
+  /** 我对进行中弹劾的投票：null 未投 / 0 维持 / 1 弹劾 */
+  myImpeachVote: number | null
+  /** 进行中的弹劾（无则 null） */
+  impeachment: ImpeachmentVO | null
   /** 死斗每日任务清单（复制到成员影子计划），无清单局为 null */
   dailyTasks: string[] | null
   members: MemberVO[]
@@ -450,3 +471,50 @@ export interface AiPlanDraftVO {
 
 /** /upload/image 返回 Map<String,String>，键名以实际为准 */
 export type UploadImageVO = Record<string, string>
+
+// ===== 管理端（仅 admin 角色，后端 @AuthCheck 双保险）=====
+
+export interface AdminUserVO {
+  id: number
+  userAccount: string
+  userName: string
+  userAvatar: string | null
+  /** user / admin */
+  userRole: string
+  currentStreak: number
+  totalPoints: number
+  createTime: string
+}
+
+export interface AdminUserCreateRequest {
+  /** 4~32 位 */
+  userAccount: string
+  /** 8~32 位，BCrypt 落库，注册赠 1000 喵币 */
+  initialPassword: string
+  /** 可选，默认随机喵友号 */
+  userName?: string
+}
+
+export interface AdminUserUpdateRequest {
+  userName?: string
+  userAvatar?: string
+  /** 仅允许 user / admin */
+  userRole?: string
+  /** 留空不修改；8~32 位 */
+  newPassword?: string
+}
+
+export interface AdminUserPageQuery {
+  current?: number
+  pageSize?: number
+  /** 昵称模糊搜索 */
+  userName?: string
+  /** 角色过滤（可选） */
+  userRole?: string
+}
+
+export interface UserBanRequest {
+  userId: number
+  /** true=封禁 false=解封 */
+  isBan: boolean
+}
