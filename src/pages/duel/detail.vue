@@ -18,7 +18,7 @@
         <view class="hs"><text class="hs-num">{{ duel.totalPool }}</text><text class="hs-label">奖池喵币</text></view>
         <view class="hs"><text class="hs-num">{{ duel.memberCount }}/{{ duel.maxMembers }}</text><text class="hs-label">成员</text></view>
         <view class="hs"><text class="hs-num">{{ duel.totalDays }}</text><text class="hs-label">总天数</text></view>
-        <view class="hs"><text class="hs-num">{{ duel.depositPerMember }}</text><text class="hs-label">每人押金</text></view>
+        <view class="hs"><text class="hs-num">{{ duel.mode === 1 ? '免押' : duel.depositPerMember }}</text><text class="hs-label">{{ duel.mode === 1 ? '组队打卡' : '每人押金' }}</text></view>
       </view>
       <text class="head-date">{{ duel.startDate }} → {{ duel.endDate }}</text>
     </view>
@@ -122,7 +122,7 @@
             <text class="member-name">{{ m.userName }}</text>
             <text v-if="m.isLeader" class="pixel-tag leader-tag">组长</text>
           </view>
-          <text class="member-days">坚持 {{ m.days }} 天 · 押金 {{ m.deposit }}</text>
+          <text class="member-days">坚持 {{ m.days }} 天{{ duel.mode === 1 ? '' : ' · 押金 ' + m.deposit }}</text>
         </view>
         <text class="member-status" :class="memberStatusClass(m.status)">{{ memberText(m) }}</text>
         <button
@@ -159,10 +159,10 @@
     <!-- 操作区 -->
     <view class="actions">
       <button v-if="duel.status === 0 && !isMember" class="pixel-btn-green" :loading="joining" @tap="doJoin">
-        💰 押 {{ duel.depositPerMember }} 喵币 加入
+        {{ duel.mode === 1 ? '🤝 免押加入' : `💰 押 ${duel.depositPerMember} 喵币 加入` }}
       </button>
-      <button v-if="duel.status === 0 && isMember && duel.myRole !== 'leader'" class="pixel-btn-sm-red" :loading="quitting" @tap="doQuit">
-        退出并退款
+      <button v-if="(duel.status === 0 || (duel.status === 1 && duel.mode === 1)) && isMember && duel.myRole !== 'leader'" class="pixel-btn-sm-red" :loading="quitting" @tap="doQuit">
+        {{ duel.mode === 1 ? '退出组队' : '退出并退款' }}
       </button>
       <button
         v-if="isMember && !isLeader && duel.status === 1 && !duel.impeachment"
@@ -456,10 +456,11 @@ async function doJoin() {
 
 async function doQuit() {
   if (quitting.value) return
+  const isTeam = duel.value?.mode === 1
   const done = await new Promise<boolean>((resolve) => {
     uni.showModal({
       title: '退出死斗',
-      content: '招募期退出全额退款，确定退出？',
+      content: isTeam ? '确定退出该组队打卡？' : '招募期退出全额退款，确定退出？',
       success: (r) => resolve(!!r.confirm)
     })
   })
@@ -468,7 +469,7 @@ async function doQuit() {
   try {
     duel.value = await quitDuel(duelId.value)
     duelStore.applyDuel(duel.value!)
-    uni.showToast({ title: '已退出，押金退回', icon: 'none' })
+    uni.showToast({ title: isTeam ? '已退出' : '已退出，押金退回', icon: 'none' })
   } catch {
     // 统一提示
   } finally {
@@ -639,7 +640,9 @@ async function onApproveAll() {
   const ok = await new Promise<boolean>((resolve) => {
     uni.showModal({
       title: '一键通过',
-      content: `将全部 ${joinRequests.value.length} 位申请者加入死斗并扣除押金，确定？`,
+      content: duel.value?.mode === 1
+        ? `将全部 ${joinRequests.value.length} 位申请者加入组队打卡，确定？`
+        : `将全部 ${joinRequests.value.length} 位申请者加入死斗并扣除押金，确定？`,
       success: (res) => resolve(!!res.confirm)
     })
   })

@@ -25,7 +25,7 @@
         </view>
       </view>
       <view class="flex-between duel-foot">
-        <text class="duel-role">{{ duel.myRole === 'leader' ? '👑 我是组长' : '🛡 组员' }} · 押金 {{ duel.depositPerMember }}</text>
+        <text class="duel-role">{{ duel.myRole === 'leader' ? '👑 我是组长' : '🛡 组员' }} · {{ duel.mode === 1 ? '免押金' : `押金 ${duel.depositPerMember}` }}</text>
         <text class="duel-date">{{ duel.startDate }} ~ {{ duel.endDate }}</text>
       </view>
     </view>

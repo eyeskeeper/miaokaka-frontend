@@ -48,6 +48,26 @@
       </view>
 
       <view class="form-item">
+        <text class="form-label">玩法类型 *</text>
+        <view class="mode-row">
+          <view class="mode-chip" :class="{ active: form.mode === 0 }" @tap="form.mode = 0">
+            <text class="mode-icon">⚔️</text>
+            <view class="mode-info">
+              <text class="mode-name">押金死斗</text>
+              <text class="mode-desc">押喵币互卷，缺卡被罚</text>
+            </view>
+          </view>
+          <view class="mode-chip" :class="{ active: form.mode === 1 }" @tap="form.mode = 1">
+            <text class="mode-icon">🤝</text>
+            <view class="mode-info">
+              <text class="mode-name">组队打卡</text>
+              <text class="mode-desc">免押金，进行中可自由进出</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
         <text class="form-label">加入方式 *</text>
         <view class="mode-row">
           <view class="mode-chip" :class="{ active: form.joinMode === 0 }" @tap="form.joinMode = 0">
@@ -89,7 +109,7 @@
         </view>
       </view>
 
-      <view class="form-item">
+      <view v-if="form.mode === 0" class="form-item">
         <text class="form-label">每人押金（100~5000 喵币）*</text>
         <view class="deposit-row">
           <button class="pixel-btn-sm step-btn" @tap="stepDeposit(-100)">－</button>
@@ -116,7 +136,7 @@
         <text>当前已有 {{ deposit || 0 }} 喵币入池（1 人）· 每加 1 人翻 {{ deposit || 0 }}</text>
       </view>
 
-      <button class="pixel-btn-red submit" :loading="submitting" @tap="submit">⚔️ 押喵币，开战！</button>
+      <button class="pixel-btn-red submit" :loading="submitting" @tap="submit">{{ form.mode === 1 ? '🤝 创建组队打卡' : '⚔️ 押喵币，开战！' }}</button>
     </view>
   </view>
 </template>
@@ -137,6 +157,7 @@ const form = reactive({
   duelDesc: '',
   startDate: '',
   joinMode: 0,
+  mode: 0 as 0 | 1,
   hidden: false
 })
 
@@ -223,7 +244,7 @@ async function submit() {
     uni.showToast({ title: '人数上限须在 2~50 之间', icon: 'none' })
     return
   }
-  if (dep < 100 || dep > 5000) {
+  if (form.mode === 0 && (dep < 100 || dep > 5000)) {
     uni.showToast({ title: '押金须在 100~5000 之间', icon: 'none' })
     return
   }
@@ -240,11 +261,12 @@ async function submit() {
       maxMembers: maxMembersNum,
       hidden: form.hidden || undefined,
       joinMode: form.joinMode,
-      depositPerMember: dep,
+      mode: form.mode,
+      depositPerMember: form.mode === 0 ? dep : undefined,
       totalDays: days,
       startDate: form.startDate || undefined
     })
-    uni.showToast({ title: '死斗已创立！', icon: 'success' })
+    uni.showToast({ title: form.mode === 1 ? '组队打卡已创立！' : '死斗已创立！', icon: 'success' })
     duelStore.fetchDuels(true)
     setTimeout(() => uni.navigateBack(), 800)
   } catch {

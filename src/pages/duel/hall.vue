@@ -25,7 +25,18 @@
         >
           {{ c.label }}
         </text>
-        <text v-if="keyword || category !== null" class="clear-btn" @tap="clearFilter">✕ 清除筛选</text>
+        <text v-if="keyword || category !== null || modeCategory !== null" class="clear-btn" @tap="clearFilter">✕ 清除筛选</text>
+      </view>
+      <view class="cat-row">
+        <text
+          v-for="m in modeCategories"
+          :key="m.value === null ? 'mall' : m.value"
+          class="pixel-tag cat-chip"
+          :class="{ active: modeCategory === m.value }"
+          @tap="modeCategory = m.value"
+        >
+          {{ m.label }}
+        </text>
       </view>
     </view>
 
@@ -37,9 +48,9 @@
     <!-- 大厅列表 -->
     <view v-for="duel in filtered" :key="duel.id" class="hall-card pixel-card">
       <view class="flex-between">
-        <text class="hall-name">⚔️ {{ duel.duelName }}</text>
-        <text class="pixel-tag" :class="duel.joinMode === 1 ? 'jm-approval' : 'jm-free'">
-          {{ duel.joinMode === 1 ? '审批制' : '自由制' }}
+        <text class="hall-name">{{ duel.mode === 1 ? '🤝' : '⚔️' }} {{ duel.duelName }}</text>
+        <text class="pixel-tag" :class="duel.mode === 1 ? 'jm-free' : 'jm-approval'">
+          {{ duel.mode === 1 ? '组队打卡' : '押金死斗' }}
         </text>
       </view>
       <text v-if="duel.duelDesc" class="hall-desc">{{ duel.duelDesc }}</text>
@@ -48,7 +59,7 @@
         <view class="meta-chip"><text>👥 {{ duel.memberCount }} 人</text></view>
         <view class="meta-chip coin">
           <image class="pixelated" src="/static/pixel/icon-coin.png" />
-          <text>押金 {{ duel.depositPerMember }}</text>
+          <text>{{ duel.mode === 1 ? '免押金' : `押金 ${duel.depositPerMember}` }}</text>
         </view>
         <view class="meta-chip"><text>⏳ {{ duel.totalDays }} 天</text></view>
       </view>
@@ -106,10 +117,19 @@ const categories = [
   { label: '审批加入', value: 1 }
 ] as const
 
+/** null=全部 0=押金死斗 1=组队打卡 */
+const modeCategory = ref<number | null>(null)
+const modeCategories = [
+  { label: '全部玩法', value: null },
+  { label: '组队打卡', value: 1 },
+  { label: '押金死斗', value: 0 }
+] as const
+
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
   return all.value.filter((d) => {
     if (category.value !== null && d.joinMode !== category.value) return false
+    if (modeCategory.value !== null && d.mode !== modeCategory.value) return false
     if (!kw) return true
     // 纯数字优先按 ID 命中，同时保留文本命中
     if (/^\d+$/.test(kw) && d.id === Number(kw)) return true
@@ -142,6 +162,7 @@ function doSearch() {
 function clearFilter() {
   keyword.value = ''
   category.value = null
+  modeCategory.value = null
 }
 
 function goCreate() {

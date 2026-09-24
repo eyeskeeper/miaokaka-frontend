@@ -193,14 +193,16 @@ export interface TaskToggleVO {
 export interface DuelCreateRequest {
   duelName: string
   duelDesc?: string
+  /** 玩法模式：0 押金死斗（默认）1 组队打卡（无押金，进行中可自由进出） */
+  mode?: number
   /** 每日任务清单（≤5 项），复制到成员影子计划；缺省为无清单局 */
   dailyTasks?: string[]
   /** 2 ~ 50 */
   maxMembers: number
   /** 隐藏局：不进招募大厅，仅组号/邀请海报可发现 */
   hidden?: boolean
-  /** 100 ~ 5000 */
-  depositPerMember: number
+  /** 100 ~ 5000；组队打卡不传（后端存 0） */
+  depositPerMember?: number
   /** 3 ~ 365 */
   totalDays: number
   /** yyyy-MM-dd，最早为明天 */
@@ -239,6 +241,8 @@ export interface DuelVO {
   duelName: string
   duelDesc: string | null
   leaderId: number
+  /** 0 押金死斗 1 组队打卡（无押金，进行中可自由进出） */
+  mode: number
   /** 0 自由加入 1 需审批 */
   joinMode: number
   /** 隐藏局：不进招募大厅，仅组号/邀请海报可发现 */
@@ -376,6 +380,8 @@ export interface HallDuelVO {
   id: number
   duelName: string
   duelDesc: string | null
+  /** 0 押金死斗 1 组队打卡（无押金） */
+  mode: number
   /** 0 自由加入 1 需审批 */
   joinMode: number
   leaderId: number
