@@ -74,6 +74,6 @@ export const reviewJoinApplication = (duelId: number, data: JoinApplicationRevie
 export const approveAllApplications = (duelId: number) =>
   post<ApplicationsApproveAllVO>(`/duel/${duelId}/applications/approve-all`)
 
-/** 招募大厅：所有招募中的死斗（后端接口待上线，未就绪时静默降级为空列表） */
-export const getRecruitingHall = (pageNum = 1, pageSize = 20) =>
-  get<HallPageVO>('/duel/hall', { pageNum, pageSize }, true)
+/** 招募大厅：招募中+进行中的死斗分页（隐藏局除外）；分页字段为 current/pageSize */
+export const getRecruitingHall = (current = 1, pageSize = 20) =>
+  get<HallPageVO>('/duel/hall', { current, pageSize }, true)
