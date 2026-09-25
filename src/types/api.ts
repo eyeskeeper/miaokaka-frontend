@@ -531,6 +531,41 @@ export interface AdminUserPageQuery {
   userRole?: string
 }
 
+export interface AnnouncementCreateRequest {
+  /** ≤64 字 */
+  title: string
+  /** ≤512 字 */
+  content: string
+}
+
+export interface AnnouncementVO {
+  id: number
+  title: string
+  content: string
+  creatorName: string
+  createTime: string
+}
+
+export interface AdminTrendDayVO {
+  date: string
+  count: number
+}
+
+export interface AdminStatsVO {
+  totalUsers: number
+  todayNewUsers: number
+  dauToday: number
+  dauYesterday: number
+  checkinsToday: number
+  checkinsYesterday: number
+  checkinsWeek: number
+  checkinsTotal: number
+  duelsRecruiting: number
+  duelsRunning: number
+  duelsSettled: number
+  trend7: AdminTrendDayVO[]
+}
+
 export interface UserBanRequest {
   userId: number
   /** true=封禁 false=解封 */

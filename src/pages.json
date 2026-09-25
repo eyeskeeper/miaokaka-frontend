@@ -33,7 +33,7 @@
     {
       "path": "pages/admin/users",
       "style": {
-        "navigationBarTitleText": "用户管理"
+        "navigationBarTitleText": "管理后台"
       }
     },
     {

@@ -1,8 +1,11 @@
 import type {
+  AdminStatsVO,
   AdminUserCreateRequest,
   AdminUserUpdateRequest,
   AdminUserPageQuery,
   AdminUserVO,
+  AnnouncementCreateRequest,
+  AnnouncementVO,
   PageData,
   UserBanRequest
 } from '@/types/api'
@@ -31,3 +34,14 @@ export const deleteAdminUser = (userId: number) =>
 /** 封禁/解封（封禁后逐出登录态缓存，立即生效） */
 export const banAdminUser = (data: UserBanRequest) =>
   post<boolean>('/admin/user/ban', data)
+
+/** 发布公告（广播到全员通知中心），返回 {announcementId, delivered} */
+export const createAnnouncement = (data: AnnouncementCreateRequest) =>
+  post<Record<string, number>>('/admin/announcement', data as unknown as Record<string, unknown>)
+
+/** 公告历史（最新在前） */
+export const getAnnouncements = (current = 1, pageSize = 20) =>
+  get<PageData<AnnouncementVO>>('/admin/announcements', { current, pageSize })
+
+/** 数据看板：用户/打卡/局数统计 + 近 7 天趋势 */
+export const getAdminStats = () => get<AdminStatsVO>('/admin/stats')

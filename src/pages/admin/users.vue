@@ -1,7 +1,13 @@
 <template>
   <view class="page">
+    <!-- 页签 -->
+    <view class="tab-row pixel-card">
+      <text class="tab-chip" :class="{ active: tab === 'users' }" @tap="tab = 'users'">👤 用户管理</text>
+      <text class="tab-chip" :class="{ active: tab === 'dash' }" @tap="switchDash">📊 数据看板</text>
+    </view>
+
     <!-- 搜索 / 角色筛选 -->
-    <view class="toolbar pixel-card">
+    <view v-show="showUsers" class="toolbar pixel-card">
       <input
         v-model="keyword"
         class="pixel-input search-input"
@@ -19,7 +25,7 @@
     </view>
 
     <!-- 用户列表 -->
-    <view class="list pixel-card">
+    <view v-show="showUsers" class="list pixel-card">
       <view v-for="u in list" :key="u.id" class="user-row">
         <view class="user-main">
           <view class="user-line">
@@ -40,13 +46,84 @@
     </view>
 
     <!-- 分页 -->
-    <view class="pager pixel-card">
+    <view v-show="showUsers" class="pager pixel-card">
       <button class="pixel-btn-sm" :disabled="current <= 1" @tap="prev">上一页</button>
       <text class="pager-info">{{ current }} / {{ totalPages }} 页 · 共 {{ total }} 人</text>
       <button class="pixel-btn-sm" :disabled="current >= totalPages" @tap="next">下一页</button>
     </view>
 
-    <button class="pixel-btn-green fab" :loading="false" @tap="openCreate">＋ 新建用户</button>
+    <button v-show="showUsers" class="pixel-btn-green fab" :loading="false" @tap="openCreate">＋ 新建用户</button>
+
+    <!-- 数据看板 -->
+    <view v-if="showDash" class="dash">
+      <!-- 公告发布 -->
+      <view class="pixel-card section">
+        <text class="pixel-h2">📣 发布公告</text>
+        <text class="dash-tip">发布后广播到每个用户的通知中心</text>
+        <input
+          v-model="annForm.title"
+          class="pixel-input"
+          :maxlength="64"
+          placeholder="公告标题"
+          placeholder-class="pixel-placeholder"
+        />
+        <textarea
+          v-model="annForm.content"
+          class="pixel-input ann-textarea"
+          :maxlength="512"
+          placeholder="公告内容"
+          placeholder-class="pixel-placeholder"
+        />
+        <button class="pixel-btn-green" :loading="annLoading" @tap="doAnnounce">📢 广播公告</button>
+      </view>
+
+      <!-- 公告历史 -->
+      <view class="pixel-card section">
+        <view class="flex-between">
+          <text class="pixel-h2">📜 公告历史</text>
+          <button class="pixel-btn-sm" @tap="loadAnnouncements">刷新</button>
+        </view>
+        <view v-for="a in announcements" :key="a.id" class="ann-row">
+          <text class="ann-title">{{ a.title }}</text>
+          <text class="ann-content">{{ a.content }}</text>
+          <text class="ann-meta">by {{ a.creatorName }} · {{ fmtTime(a.createTime) }}</text>
+        </view>
+        <text v-if="announcements.length === 0" class="empty">还没有发过公告</text>
+      </view>
+
+      <!-- 数据看板 -->
+      <view class="pixel-card section">
+        <view class="flex-between">
+          <text class="pixel-h2">📊 数据看板</text>
+          <button class="pixel-btn-sm" :loading="statsLoading" @tap="loadStats">刷新</button>
+        </view>
+        <template v-if="stats">
+          <view class="metric-grid">
+            <view class="metric"><text class="metric-num">{{ stats.totalUsers }}</text><text class="metric-label">累计用户</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.todayNewUsers }}</text><text class="metric-label">今日新增</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.dauToday }}</text><text class="metric-label">今日 DAU</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.dauYesterday }}</text><text class="metric-label">昨日 DAU</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.checkinsToday }}</text><text class="metric-label">今日打卡</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.checkinsYesterday }}</text><text class="metric-label">昨日打卡</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.checkinsWeek }}</text><text class="metric-label">本周打卡</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.checkinsTotal }}</text><text class="metric-label">累计打卡</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.duelsRecruiting }}</text><text class="metric-label">招募中局数</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.duelsRunning }}</text><text class="metric-label">进行中局数</text></view>
+            <view class="metric"><text class="metric-num">{{ stats.duelsSettled }}</text><text class="metric-label">已结算局数</text></view>
+          </view>
+          <text class="sub-title">近 7 天打卡趋势</text>
+          <view class="week-bars">
+            <view v-for="d in stats.trend7" :key="d.date" class="day-col">
+              <view class="bar-wrap">
+                <view class="bar" :style="{ height: trendBar(d.count) + 'rpx' }" />
+              </view>
+              <text class="day-num">{{ d.count }}</text>
+              <text class="day-label">{{ d.date.slice(5) }}</text>
+            </view>
+          </view>
+        </template>
+      </view>
+    </view>
 
     <!-- 新建弹窗 -->
     <view v-if="createVisible" class="modal-mask" @tap="createVisible = false">
@@ -126,22 +203,88 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import {
   banAdminUser,
   createAdminUser,
+  createAnnouncement,
   deleteAdminUser,
+  getAdminStats,
+  getAnnouncements,
   pageAdminUsers,
   updateAdminUser
 } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
-import type { AdminUserVO } from '@/types/api'
+import type { AdminStatsVO, AdminUserVO, AnnouncementVO } from '@/types/api'
 import { uploadImage } from '@/utils/upload'
 
 const userStore = useUserStore()
 
 const isAdmin = computed(() => userStore.userInfo?.userRole === 'admin')
+
+/** users=用户管理 dash=数据看板 */
+const tab = ref<'users' | 'dash'>('users')
+
+const showUsers = computed(() => tab.value === 'users')
+const showDash = computed(() => tab.value === 'dash')
+
+const stats = ref<AdminStatsVO | null>(null)
+const statsLoading = ref(false)
+
+const announcements = ref<AnnouncementVO[]>([])
+const annLoading = ref(false)
+const annForm = reactive({ title: '', content: '' })
+
+function switchDash() {
+  tab.value = 'dash'
+  if (!stats.value) loadStats()
+  loadAnnouncements()
+}
+
+function loadStats() {
+  statsLoading.value = true
+  getAdminStats()
+    .then((d) => (stats.value = d))
+    .catch(() => {})
+    .finally(() => (statsLoading.value = false))
+}
+
+function loadAnnouncements() {
+  annLoading.value = true
+  getAnnouncements(1, 20)
+    .then((d) => (announcements.value = d.records))
+    .catch(() => {})
+    .finally(() => (annLoading.value = false))
+}
+
+async function doAnnounce() {
+  if (annLoading.value) return
+  if (!annForm.title.trim() || !annForm.content.trim()) {
+    uni.showToast({ title: '标题与内容不能为空', icon: 'none' })
+    return
+  }
+  annLoading.value = true
+  try {
+    const r = await createAnnouncement({
+      title: annForm.title.trim(),
+      content: annForm.content.trim()
+    })
+    uni.showToast({ title: `已广播给 ${r.delivered} 位用户`, icon: 'none' })
+    annForm.title = ''
+    annForm.content = ''
+    loadAnnouncements()
+  } catch {
+    // 统一提示
+  } finally {
+    annLoading.value = false
+  }
+}
+
+function trendBar(count: number) {
+  const max = Math.max(...(stats.value?.trend7 ?? []).map((t) => t.count), 1)
+  return Math.max(10, Math.round((count / max) * 120))
+}
 
 const PAGE_SIZE = 10
 const list = ref<AdminUserVO[]>([])
@@ -466,5 +609,140 @@ function fmtTime(value: string) {
 
 .upload-btn {
   margin-top: 16rpx;
+}
+
+.tab-row {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 4rpx;
+
+  .tab-chip {
+    flex: 1;
+    text-align: center;
+    padding: 14rpx 0;
+    font-size: 26rpx;
+    border: 3rpx solid $pixel-ink;
+    background: $pixel-card-alt;
+    color: $pixel-ink;
+    font-weight: 700;
+
+    &.active {
+      background: $pixel-primary;
+      color: #fffbef;
+    }
+  }
+}
+
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding-bottom: 40rpx;
+}
+
+.dash-tip {
+  font-size: 22rpx;
+  color: $pixel-ink-light;
+}
+
+.ann-textarea {
+  width: 100%;
+  height: 140rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+  font-size: 26rpx;
+}
+
+.ann-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding-bottom: 14rpx;
+  border-bottom: 2rpx dashed $pixel-ink-light;
+
+  .ann-title {
+    font-size: 26rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
+
+  .ann-content {
+    font-size: 24rpx;
+    color: $pixel-ink;
+  }
+
+  .ann-meta {
+    font-size: 20rpx;
+    color: $pixel-ink-light;
+  }
+}
+
+.metric-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.metric {
+  width: calc(33.3% - 12rpx);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx 0;
+  background: $pixel-card-alt;
+  border: 2rpx solid $pixel-ink;
+
+  .metric-num {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: $pixel-primary;
+  }
+
+  .metric-label {
+    font-size: 20rpx;
+    color: $pixel-ink-light;
+  }
+}
+
+.sub-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: $pixel-ink;
+}
+
+.week-bars {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.day-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+
+  .bar-wrap {
+    height: 130rpx;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .bar {
+    width: 40rpx;
+    background: $pixel-green;
+    border: 3rpx solid $pixel-ink;
+  }
+
+  .day-num {
+    font-size: 22rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
+
+  .day-label {
+    font-size: 20rpx;
+    color: $pixel-ink-light;
+  }
 }
 </style>
