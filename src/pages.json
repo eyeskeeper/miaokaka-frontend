@@ -37,6 +37,18 @@
       }
     },
     {
+      "path": "pages/stats/stats",
+      "style": {
+        "navigationBarTitleText": "打卡统计"
+      }
+    },
+    {
+      "path": "pages/mall/mall",
+      "style": {
+        "navigationBarTitleText": "积分商城"
+      }
+    },
+    {
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "登录",

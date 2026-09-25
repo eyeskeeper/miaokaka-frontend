@@ -44,6 +44,16 @@
         <text class="menu-text">全勤排行榜</text>
         <text class="menu-arrow">▶</text>
       </view>
+      <view class="menu-row" @tap="goStats">
+        <text class="menu-icon">📊</text>
+        <text class="menu-text">打卡统计</text>
+        <text class="menu-arrow">▶</text>
+      </view>
+      <view class="menu-row" @tap="goMall">
+        <text class="menu-icon">🛒</text>
+        <text class="menu-text">积分商城</text>
+        <text class="menu-arrow">▶</text>
+      </view>
       <view class="menu-row" @tap="goDen">
         <text class="menu-icon">🏠</text>
         <text class="menu-text">我的猫窝</text>
@@ -117,6 +127,14 @@ function goDen() {
 
 function goAdminUsers() {
   uni.navigateTo({ url: '/pages/admin/users' })
+}
+
+function goStats() {
+  uni.navigateTo({ url: '/pages/stats/stats' })
+}
+
+function goMall() {
+  uni.navigateTo({ url: '/pages/mall/mall' })
 }
 
 function showAbout() {

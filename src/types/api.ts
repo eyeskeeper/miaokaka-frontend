@@ -126,6 +126,8 @@ export interface CheckInMakeupRequest {
   planId: number
   /** yyyy-MM-dd */
   date: string
+  /** 使用补卡券（持有券则免扣积分） */
+  useVoucher?: boolean
 }
 
 export interface CheckInResultVO {
@@ -152,6 +154,10 @@ export interface CheckInResultVO {
   currentStreak: number
   maxStreak: number
   encouragement: string
+  /** 本次新解锁的徽章名称（无则空列表） */
+  unlockedBadges?: string[]
+  /** 是否自动消耗了双倍经验卡（本次经验 ×2） */
+  doubleExp?: boolean
 }
 
 export interface MakeupResultVO {
@@ -160,6 +166,10 @@ export interface MakeupResultVO {
   totalPoints: number
   currentStreak: number
   maxStreak: number
+  /** 本次新解锁的徽章名称（无则空列表） */
+  unlockedBadges?: string[]
+  /** 是否使用了补卡券（免扣积分） */
+  voucherUsed?: boolean
 }
 
 export interface DayRecord {
@@ -523,4 +533,66 @@ export interface UserBanRequest {
   userId: number
   /** true=封禁 false=解封 */
   isBan: boolean
+}
+
+// ===== 打卡统计 / 成就徽章 / 积分商城 =====
+
+export interface HeatmapDayVO {
+  date: string
+  /** 当日打卡次数（正常+补卡） */
+  count: number
+}
+
+export interface PlanWeekVO {
+  planId: number
+  planName: string
+  /** 本周已完成天数 */
+  days: number
+}
+
+export interface WeeklyStatsVO {
+  weekStart: string
+  weekEnd: string
+  /** 本周每日打卡次数（仅截至今天） */
+  perDay: HeatmapDayVO[]
+  perPlan: PlanWeekVO[]
+  totalCheckins: number
+  lastWeekTotal: number
+  /** 全勤连击 */
+  currentFullStreak: number
+  /** 最强计划连击 */
+  bestPlanStreak: number
+  /** AI 周报总结（DeepSeek 失败时为模板文案） */
+  aiSummary: string
+}
+
+export interface AchievementVO {
+  code: string
+  name: string
+  description: string
+  unlocked: boolean
+  unlockedAt: string | null
+}
+
+export interface MallItemVO {
+  code: string
+  name: string
+  price: number
+  description: string
+  owned: number
+}
+
+export interface BagItemVO {
+  code: string
+  name: string
+  quantity: number
+}
+
+export interface MallBuyRequest {
+  itemCode: string
+}
+
+export interface MallBuyResultVO {
+  totalPoints: number
+  owned: number
 }

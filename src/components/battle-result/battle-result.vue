@@ -52,7 +52,7 @@
           <text class="br-row-val stat">{{ result.statName }} +{{ result.statGain }}</text>
         </view>
         <view class="br-row anim" style="--i: 1">
-          <text>✨ 经验</text>
+          <text>✨ 经验{{ result.doubleExp ? '（双倍卡 ×2）' : '' }}</text>
           <text class="br-row-val">+{{ result.expGained }}</text>
         </view>
         <view v-if="result.levelUp" class="br-row anim levelup" style="--i: 2">
@@ -66,6 +66,10 @@
         <view class="br-row anim" style="--i: 4">
           <text>🔥 全勤连击</text>
           <text class="br-row-val streak">{{ result.currentStreak }} 天</text>
+        </view>
+        <view v-if="result.unlockedBadges && result.unlockedBadges.length" class="br-row anim" style="--i: 4">
+          <text>🏅 解锁徽章</text>
+          <text class="br-row-val">{{ result.unlockedBadges.join('、') }}</text>
         </view>
       </view>
 

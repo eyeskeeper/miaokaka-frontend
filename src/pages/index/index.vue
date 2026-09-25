@@ -266,11 +266,41 @@ onShow(() => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
-  planStore.fetchPlans(true).then(syncTaskProgress)
+  planStore
+    .fetchPlans(true)
+    .then(() => {
+      syncTaskProgress()
+      // #ifdef APP-PLUS
+      remindLocalPush()
+      // #endif
+    })
   userStore.fetchMe()
   // 静默拉死斗列表，用于识别死斗影子计划（打卡走凭证而非自动结算）
   duelStore.fetchDuels(true).catch(() => {})
 })
+
+// #ifdef APP-PLUS
+/**
+ * App 端本地提醒：已设置提醒时间、已过时刻、当日未打卡的计划 → 系统通知栏弹一条本地消息。
+ * 仅在 App 进程存活时生效；进程被杀后由后端通知中心兜底（打开 App 可见）。
+ */
+function remindLocalPush() {
+  const now = new Date()
+  const minutesNow = now.getHours() * 60 + now.getMinutes()
+  for (const p of planStore.plans) {
+    if (p.status !== 0 || p.todayChecked || !p.remindTime) continue
+    const parts = p.remindTime.split(':')
+    if (parts.length !== 2) continue
+    const h = Number(parts[0])
+    const m = Number(parts[1])
+    if (Number.isNaN(h) || Number.isNaN(m) || minutesNow < h * 60 + m) continue
+    ;(uni as unknown as { createPushMessage: (o: { title: string; content: string }) => void }).createPushMessage({
+      title: '喵卡卡 · 打卡提醒',
+      content: `「${p.planName}」今天的打卡还没完成，喵喵在等你！`
+    })
+  }
+}
+// #endif
 
 function onBattleClose() {
   showBattle.value = false

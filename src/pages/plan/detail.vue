@@ -108,7 +108,13 @@
     <view v-if="makeupDate" class="modal-mask" @tap="makeupDate = ''">
       <view class="modal pixel-card" @tap.stop>
         <text class="pixel-h2">补卡确认</text>
-        <text class="makeup-text">{{ makeupDate }} 没打卡，要花 <text class="coin">50 喵币</text> 补上吗？</text>
+        <text class="makeup-text">{{ makeupDate }} 没打卡，要花 <text class="coin">50 积分</text> 补上吗？</text>
+        <view v-if="voucherCount > 0" class="voucher-row" @tap="useVoucher = !useVoucher">
+          <text class="voucher-text">🎫 使用补卡券（免扣积分，剩 {{ voucherCount }} 张）</text>
+          <view class="hide-switch" :class="{ on: useVoucher }">
+            <view class="switch-knob" />
+          </view>
+        </view>
         <text class="makeup-sub">本月剩余补卡次数以服务端为准；补卡不触发随机事件</text>
         <view class="modal-btns">
           <button class="pixel-btn-sm" @tap="makeupDate = ''">再想想</button>
@@ -124,6 +130,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import { checkIn, makeupCheckIn } from '@/api/checkin'
+import { getMallBag } from '@/api/mall'
 import { deletePlan, getPlanDetail, renameCat, toggleTask, updatePlan } from '@/api/plan'
 import BattleResult from '@/components/battle-result/battle-result.vue'
 import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
@@ -150,6 +157,8 @@ const showRename = ref(false)
 const renameText = ref('')
 const makeupDate = ref('')
 const makeupLoading = ref(false)
+const voucherCount = ref(0)
+const useVoucher = ref(false)
 
 const cat = computed(() => plan.value?.cat ?? null)
 const catPose = computed(() => (plan.value?.todayChecked ? 'happy' : 'idle'))
@@ -267,15 +276,30 @@ async function doRename() {
 
 function onMakeupTap(date: string) {
   makeupDate.value = date
+  useVoucher.value = false
+  // 弹窗打开时查一次背包：有补卡券才显示抵扣选项
+  getMallBag()
+    .then((bag) => {
+      const voucher = bag.find((b) => b.code === 'MAKEUP_VOUCHER')
+      voucherCount.value = voucher?.quantity ?? 0
+    })
+    .catch(() => {})
 }
 
 async function doMakeup() {
   if (!makeupDate.value || makeupLoading.value) return
   makeupLoading.value = true
   try {
-    await makeupCheckIn(planId.value, makeupDate.value)
+    const useV = useVoucher.value && voucherCount.value > 0
+    const r = await makeupCheckIn(planId.value, makeupDate.value, useV || undefined)
     makeupDate.value = ''
-    uni.showToast({ title: `补卡成功，-50 喵币`, icon: 'none' })
+    uni.showToast({
+      title: r.voucherUsed ? '补卡成功（补卡券抵扣）' : `补卡成功，-${r.pointsCost} 积分`,
+      icon: 'none'
+    })
+    if (r.unlockedBadges && r.unlockedBadges.length) {
+      setTimeout(() => uni.showToast({ title: `🏅 解锁徽章：${r.unlockedBadges!.join('、')}`, icon: 'none' }), 800)
+    }
     calendarRef.value?.reload()
     refreshAfterSettle()
   } catch {
