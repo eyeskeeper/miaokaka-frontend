@@ -21,3 +21,7 @@ export const renameCat = (planId: number, catName: string) =>
 
 export const toggleTask = (planId: number, taskIndex: number, done: boolean) =>
   post<TaskToggleVO>(`/plan/${planId}/task/toggle`, { taskIndex, done })
+
+/** 从模板一键建计划（任务清单/天数/类型复制） */
+export const applyPlanTemplate = (templateId: number) =>
+  post<PlanVO>('/plan/from-template', { templateId })

@@ -16,6 +16,7 @@
         />
         <button class="pixel-btn-sm" :loading="aiLoading" @tap="genDraft">生成</button>
       </view>
+      <button class="pixel-btn-sm tpl-save" :loading="savingTpl" @tap="doSaveTemplate">🧷 存为模板</button>
     </view>
 
     <!-- 表单 -->
@@ -107,6 +108,7 @@ import { ensureLogin } from '@/utils/auth'
 import { reactive, ref } from 'vue'
 import { getPlanDraft } from '@/api/ai'
 import { createPlan, getPlanDetail, updatePlan } from '@/api/plan'
+import { createTemplate } from '@/api/template'
 import { PLAN_TYPES } from '@/constants/pixel'
 import type { AiPlanDraftVO } from '@/types/api'
 
@@ -123,6 +125,36 @@ const targetDaysText = ref('')
 const tasks = ref<string[]>([''])
 const aiDescription = ref('')
 const aiLoading = ref(false)
+const savingTpl = ref(false)
+
+/** 把当前表单（含 AI 草稿结果）存为公开模板，进入模板市场 */
+async function doSaveTemplate() {
+  const name = form.planName.trim()
+  if (!name) {
+    uni.showToast({ title: '先填写计划名称再存为模板', icon: 'none' })
+    return
+  }
+  const taskList = tasks.value.map((t) => t.trim()).filter(Boolean)
+  if (taskList.length === 0) {
+    uni.showToast({ title: '模板至少一项每日任务', icon: 'none' })
+    return
+  }
+  savingTpl.value = true
+  try {
+    await createTemplate({
+      templateName: name,
+      templateDesc: form.planDesc.trim() || undefined,
+      planType: form.planType,
+      targetDays: Number(targetDaysText.value) || 21,
+      dailyTasks: taskList
+    })
+    uni.showToast({ title: '已存为模板，进入模板市场', icon: 'success' })
+  } catch {
+    // 统一提示
+  } finally {
+    savingTpl.value = false
+  }
+}
 const submitting = ref(false)
 
 onShow(() => {

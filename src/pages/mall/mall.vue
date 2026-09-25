@@ -7,6 +7,13 @@
       <text class="points-tip">打卡赚积分，商城花积分</text>
     </view>
 
+    <!-- 小鱼干 -->
+    <view class="fish-card pixel-card">
+      <text class="fish-icon">🐟</text>
+      <text class="fish-num">小鱼干 × {{ driedFish }}</text>
+      <button class="pixel-btn-sm" :disabled="driedFish <= 0 || exchanging" @tap="doExchange">1:1 兑积分</button>
+    </view>
+
     <!-- 商品目录 -->
     <view class="pixel-card section">
       <text class="pixel-h2">🛒 商品目录</text>
@@ -42,7 +49,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
-import { buyMallItem, getMallBag, getMallCatalog } from '@/api/mall'
+import { buyMallItem, exchangeFish, getMallBag, getMallCatalog } from '@/api/mall'
 import { useUserStore } from '@/stores/user'
 import type { BagItemVO, MallItemVO } from '@/types/api'
 
@@ -51,6 +58,8 @@ const userStore = useUserStore()
 const catalog = ref<MallItemVO[]>([])
 const bag = ref<BagItemVO[]>([])
 const buyingCode = ref('')
+const exchanging = ref(false)
+const driedFish = ref(0)
 
 const totalPoints = ref(userStore.userInfo?.totalPoints ?? 0)
 
@@ -68,7 +77,24 @@ function refresh() {
     .catch(() => {})
   userStore.fetchMe().then(() => {
     totalPoints.value = userStore.userInfo?.totalPoints ?? 0
+    driedFish.value = userStore.userInfo?.driedFish ?? 0
   })
+}
+
+async function doExchange() {
+  if (driedFish.value <= 0 || exchanging.value) return
+  exchanging.value = true
+  try {
+    driedFish.value = await exchangeFish(driedFish.value)
+    userStore.fetchMe().then(() => {
+      totalPoints.value = userStore.userInfo?.totalPoints ?? 0
+    })
+    uni.showToast({ title: '兑换成功', icon: 'success' })
+  } catch {
+    // 统一提示
+  } finally {
+    exchanging.value = false
+  }
 }
 
 async function doBuy(item: MallItemVO) {
@@ -196,4 +222,23 @@ async function doBuy(item: MallItemVO) {
   text-align: center;
   padding: 16rpx 0;
 }
+
+.fish-card {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+
+  .fish-icon {
+    font-size: 40rpx;
+  }
+
+  .fish-num {
+    flex: 1;
+    font-size: 28rpx;
+    font-weight: 700;
+    color: $pixel-ink;
+  }
+}
+
 </style>

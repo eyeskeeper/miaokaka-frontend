@@ -49,6 +49,24 @@
       }
     },
     {
+      "path": "pages/friend/friend",
+      "style": {
+        "navigationBarTitleText": "好友"
+      }
+    },
+    {
+      "path": "pages/friend/friend-detail",
+      "style": {
+        "navigationBarTitleText": "好友围观"
+      }
+    },
+    {
+      "path": "pages/template/market",
+      "style": {
+        "navigationBarTitleText": "计划模板市场"
+      }
+    },
+    {
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "登录",

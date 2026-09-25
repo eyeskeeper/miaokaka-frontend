@@ -8,10 +8,16 @@
       </view>
     </view>
 
+    <!-- 榜单切换 -->
+    <view class="tab-row pixel-card">
+      <text class="tab-chip" :class="{ active: tab === 'all' }" @tap="switchTab('all')">🌐 全站</text>
+      <text class="tab-chip" :class="{ active: tab === 'friends' }" @tap="switchTab('friends')">👫 好友</text>
+    </view>
+
     <!-- 竖版滚动榜单 -->
     <view class="list-card pixel-card">
       <view
-        v-for="item in rankStore.list"
+        v-for="item in displayList"
         :key="item.userId"
         class="rank-row"
         :class="[rowClass(item), { me: isMe(item) }]"
@@ -28,8 +34,8 @@
         </view>
       </view>
 
-      <view v-if="!rankStore.loading && rankStore.list.length === 0" class="list-empty">
-        榜单虚位以待，全勤打卡抢第一！
+      <view v-if="!rankStore.loading && displayList.length === 0" class="list-empty">
+        {{ tab === 'friends' ? '还没有好友，去「我的 → 好友」添加吧！' : '榜单虚位以待，全勤打卡抢第一！' }}
       </view>
       <view v-if="rankStore.loading" class="list-empty">加载中…</view>
     </view>
@@ -53,9 +59,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
+import { getFriendRank } from '@/api/friend'
 import { useRankStore } from '@/stores/rank'
 import { useUserStore } from '@/stores/user'
 import type { RankItemVO } from '@/types/api'
@@ -64,6 +71,36 @@ const rankStore = useRankStore()
 const userStore = useUserStore()
 
 const myId = computed(() => userStore.userInfo?.id ?? -1)
+
+/** all=全站榜 friends=好友榜 */
+const tab = ref<'all' | 'friends'>('all')
+const friendRank = ref<RankItemVO[]>([])
+
+function switchTab(t: 'all' | 'friends') {
+  tab.value = t
+  if (t === 'friends' && friendRank.value.length === 0) {
+    getFriendRank()
+      .then((d) => {
+        friendRank.value = (d || []).map((r, i) => ({ rank: i + 1, ...r }))
+      })
+      .catch(() => {})
+  }
+}
+
+/** 好友榜条目映射为与全站榜同构的行（补 rank 序号） */
+const displayList = computed(() => {
+  if (tab.value !== 'friends') return rankStore.list
+  return friendRank.value
+    .slice()
+    .sort((a, b) => b.currentStreak - a.currentStreak)
+    .map((r, i) => ({
+      rank: i + 1,
+      userId: r.userId,
+      userName: r.userName,
+      userAvatar: r.userAvatar,
+      currentStreak: r.currentStreak
+    }))
+})
 
 const isMe = (item: RankItemVO) => item.userId === myId.value
 
@@ -241,6 +278,25 @@ onShow(() => {
   font-size: 24rpx;
   color: $pixel-ink-light;
   padding: 24rpx 0;
+}
+
+.tab-row {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+
+  .tab-chip {
+    padding: 8rpx 24rpx;
+    font-size: 24rpx;
+    border: 2rpx solid $pixel-ink;
+    background: $pixel-card-alt;
+    color: $pixel-ink;
+
+    &.active {
+      background: $pixel-primary;
+      color: #fffbef;
+    }
+  }
 }
 
 /* 底部固定我的排名 */

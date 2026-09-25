@@ -31,6 +31,8 @@ export interface LoginUserVO {
   userRole: string
   currentStreak: number
   totalPoints: number
+  /** 小鱼干（好友点赞获得） */
+  driedFish?: number
   createTime: string
 }
 
@@ -595,4 +597,93 @@ export interface MallBuyRequest {
 export interface MallBuyResultVO {
   totalPoints: number
   owned: number
+}
+
+// ===== 好友 / 点赞 / 模板市场 =====
+
+export interface FriendVO {
+  userId: number
+  userName: string
+  userAvatar: string | null
+  /** 全勤连击 */
+  currentStreak: number
+}
+
+export interface FriendApplicationVO {
+  /** 申请记录id（同意/拒绝用） */
+  id: number
+  userId: number
+  userName: string
+  userAvatar: string | null
+  createTime: string
+}
+
+export interface FriendRankItemVO {
+  userId: number
+  userName: string
+  userAvatar: string | null
+  currentStreak: number
+  isMe: boolean
+}
+
+export interface FriendFeedItemVO {
+  /** 打卡记录id（点赞用） */
+  recordId: number
+  friendId: number
+  friendName: string
+  friendAvatar: string | null
+  planName: string
+  checkInDate: string
+  /** 0 正常 1 补卡 */
+  status: number
+  likeCount: number
+  likedByMe: boolean
+}
+
+export interface FriendSearchVO {
+  userId: number
+  userAccount: string
+  userName: string
+  userAvatar: string | null
+}
+
+export interface FriendCatItemVO {
+  planId: number
+  planName: string
+  catName: string
+  level: number
+  bossName: string
+  totalBossDefeated: number
+}
+
+export interface FriendCatVO {
+  friendId: number
+  friendName: string
+  cats: FriendCatItemVO[]
+}
+
+export interface TemplateVO {
+  id: number
+  creatorId: number
+  templateName: string
+  templateDesc: string | null
+  /** 0 学习 1 运动 2 阅读 3 其他 */
+  planType: number
+  targetDays: number
+  dailyTasks: string[] | null
+  isOfficial: boolean
+  creatorName: string
+  useCount: number
+}
+
+export interface TemplateCreateRequest {
+  /** ≤128 字 */
+  templateName: string
+  templateDesc?: string
+  /** 0 学习 1 运动 2 阅读 3 其他 */
+  planType?: number
+  /** 1~3650 */
+  targetDays?: number
+  /** ≤5 项 */
+  dailyTasks?: string[]
 }

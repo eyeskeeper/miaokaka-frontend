@@ -10,3 +10,7 @@ export const getMallBag = () => get<BagItemVO[]>('/mall/bag')
 /** 购买道具（原子扣积分） */
 export const buyMallItem = (data: MallBuyRequest) =>
   post<MallBuyResultVO>('/mall/buy', data)
+
+/** 小鱼干兑积分（1:1，返回剩余小鱼干） */
+export const exchangeFish = (fish: number) =>
+  post<number>('/mall/exchange-fish', { fish })
