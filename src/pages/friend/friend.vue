@@ -38,16 +38,33 @@
 
     <!-- 好友列表 -->
     <view class="pixel-card section">
-      <text class="pixel-h2">👥 我的好友（{{ friends.length }}）</text>
+      <text class="pixel-h2">👥 我的好友（{{ friends.length }}/{{ friendMax }}）</text>
       <view v-for="f in friends" :key="f.userId" class="friend-row">
         <view class="avatar">{{ (f.userName || '?').slice(0, 1) }}</view>
         <view class="friend-info" @tap="goDetail(f)">
           <text class="friend-name">{{ f.userName }}</text>
           <text class="friend-streak">🔥 全勤 {{ f.currentStreak }} 天 · 点此围观</text>
         </view>
-        <button class="pixel-btn-sm-red" @tap="doRemove(f)">删除</button>
+        <view class="friend-ops">
+          <button class="pixel-btn-sm" @tap="doBlock(f)">拉黑</button>
+          <button class="pixel-btn-sm-red" @tap="doRemove(f)">删除</button>
+        </view>
       </view>
       <text v-if="friends.length === 0" class="empty-line">还没有好友，快去添加吧</text>
+    </view>
+
+    <!-- 黑名单 -->
+    <view class="pixel-card section">
+      <text class="pixel-h2">🚫 黑名单（{{ blocked.length }}）</text>
+      <view v-for="b in blocked" :key="b.userId" class="friend-row">
+        <view class="avatar blocked">{{ (b.userName || '?').slice(0, 1) }}</view>
+        <view class="friend-info">
+          <text class="friend-name">{{ b.userName || b.userAccount }}</text>
+          <text class="friend-streak">已拉黑 · 无法搜索/申请/围观你</text>
+        </view>
+        <button class="pixel-btn-sm-green" @tap="doUnblock(b)">解除</button>
+      </view>
+      <text v-if="blocked.length === 0" class="empty-line">黑名单为空</text>
     </view>
 
     <!-- 好友动态 -->
@@ -81,21 +98,28 @@ import { ref } from 'vue'
 import {
   agreeFriendApplication,
   applyFriend,
+  blockUser,
+  getBlockedList,
   getFriendApplications,
   getFriendFeed,
   getFriendList,
   likeCheckIn,
   rejectFriendApplication,
   removeFriend,
-  searchUser
+  searchUser,
+  unblockUser
 } from '@/api/friend'
 import { ensureLogin } from '@/utils/auth'
 import type {
+  BlockedUserVO,
   FriendApplicationVO,
   FriendFeedItemVO,
   FriendSearchVO,
   FriendVO
 } from '@/types/api'
+
+const friendMax = 500
+const blocked = ref<import('@/types/api').BlockedUserVO[]>([])
 
 const applications = ref<FriendApplicationVO[]>([])
 const friends = ref<FriendVO[]>([])
@@ -112,7 +136,39 @@ onShow(() => {
   loadApps()
   loadFriends()
   loadFeed()
+  getBlockedList()
+    .then((d) => (blocked.value = d || []))
+    .catch(() => {})
 })
+
+async function doBlock(f: FriendVO) {
+  const done = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '拉黑用户',
+      content: `拉黑「${f.userName}」？将删除好友关系并封锁（对方无法搜索/申请/围观你），可随时在黑名单解除`,
+      success: (r) => resolve(!!r.confirm)
+    })
+  })
+  if (!done) return
+  try {
+    await blockUser(f.userId)
+    uni.showToast({ title: '已拉黑', icon: 'none' })
+    loadFriends()
+    getBlockedList().then((d) => (blocked.value = d || [])).catch(() => {})
+  } catch {
+    // 统一提示
+  }
+}
+
+async function doUnblock(b: import('@/types/api').BlockedUserVO) {
+  try {
+    await unblockUser(b.userId)
+    uni.showToast({ title: '已解除拉黑', icon: 'none' })
+    getBlockedList().then((d) => (blocked.value = d || [])).catch(() => {})
+  } catch {
+    // 统一提示
+  }
+}
 
 function loadApps() {
   loadingApps.value = true
@@ -313,4 +369,16 @@ function goDetail(f: FriendVO) {
   text-align: center;
   padding: 12rpx 0;
 }
+
+.avatar.blocked {
+  background: $pixel-red;
+  color: #fffbef;
+}
+
+.friend-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
 </style>

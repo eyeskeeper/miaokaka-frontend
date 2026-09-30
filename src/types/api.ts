@@ -653,6 +653,14 @@ export interface FriendApplicationVO {
   createTime: string
 }
 
+export interface BlockedUserVO {
+  userId: number
+  userName: string
+  userAccount: string
+  userAvatar: string | null
+  createTime: string
+}
+
 export interface FriendRankItemVO {
   userId: number
   userName: string

@@ -40,3 +40,14 @@ export const getFriendCalendar = (friendId: number, planId: number, month?: stri
 
 export const likeCheckIn = (recordId: number) =>
   post<{ likeCount: number }>(`/friend/like/${recordId}`)
+
+/** 拉黑：解除双向好友关系并封锁（静默不通知对方） */
+export const blockUser = (friendUserId: number) =>
+  post<boolean>(`/friend/${friendUserId}/block`)
+
+/** 解除拉黑 */
+export const unblockUser = (friendUserId: number) =>
+  del<boolean>(`/friend/${friendUserId}/block`)
+
+/** 黑名单列表 */
+export const getBlockedList = () => get<import('@/types/api').BlockedUserVO[]>('/friend/blocked')
