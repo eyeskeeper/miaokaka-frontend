@@ -46,7 +46,9 @@
           <text class="friend-streak">🔥 全勤 {{ f.currentStreak }} 天 · 点此围观</text>
         </view>
         <view class="friend-ops">
-          <button class="pixel-btn-sm" @tap="doBlock(f)">拉黑</button>
+          <button class="pixel-btn-sm" :disabled="blocked.length >= 20" @tap="doBlock(f)">
+            {{ blocked.length >= 20 ? '黑名单已满' : '拉黑' }}
+          </button>
           <button class="pixel-btn-sm-red" @tap="doRemove(f)">删除</button>
         </view>
       </view>
@@ -55,7 +57,7 @@
 
     <!-- 黑名单 -->
     <view class="pixel-card section">
-      <text class="pixel-h2">🚫 黑名单（{{ blocked.length }}）</text>
+      <text class="pixel-h2">🚫 黑名单（{{ blocked.length }}/20）</text>
       <view v-for="b in blocked" :key="b.userId" class="friend-row">
         <view class="avatar blocked">{{ (b.userName || '?').slice(0, 1) }}</view>
         <view class="friend-info">
