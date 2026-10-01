@@ -43,14 +43,32 @@
 
       <!-- 结算条目：逐条弹出 -->
       <view class="br-rows">
-        <view v-if="result.damage > 0" class="br-row anim" style="--i: 0">
-          <text>⚔️ {{ result.eventDesc }}</text>
-          <text class="br-row-val damage">-{{ result.damage }}</text>
+        <view v-if="result.eventCode === 'COIN_PERIOD'" class="br-row anim" style="--i: 0">
+          <text>🪙 {{ result.eventDesc }}</text>
+          <text class="br-row-val coin">+{{ result.coinReward }} 喵币</text>
         </view>
-        <view v-else-if="result.statGain > 0" class="br-row anim" style="--i: 0">
-          <text>{{ result.eventDesc }}</text>
-          <text class="br-row-val stat">{{ result.statName }} +{{ result.statGain }}</text>
+        <view v-else-if="result.eventCode === 'ITEM'" class="br-row anim" style="--i: 0">
+          <text>🎁 {{ result.eventDesc }}</text>
         </view>
+        <view v-else-if="result.eventCode === 'ACCESSORY'" class="br-row anim" style="--i: 0">
+          <text>💎 {{ result.eventDesc }}</text>
+        </view>
+        <view v-else-if="result.eventCode === 'STAT_MINUS'" class="br-row anim" style="--i: 0">
+          <text>💧 {{ result.eventDesc }}</text>
+        </view>
+        <view v-else-if="result.eventCode === 'STAT_PLUS'" class="br-row anim" style="--i: 0">
+          <text>✨ {{ result.eventDesc }}</text>
+        </view>
+        <template v-else>
+          <view v-if="result.damage > 0" class="br-row anim" style="--i: 0">
+            <text>⚔️ {{ result.eventDesc }}</text>
+            <text class="br-row-val damage">-{{ result.damage }}</text>
+          </view>
+          <view v-else-if="result.statGain > 0" class="br-row anim" style="--i: 0">
+            <text>{{ result.eventDesc }}</text>
+            <text class="br-row-val stat">{{ result.statName }} +{{ result.statGain }}</text>
+          </view>
+        </template>
         <view class="br-row anim" style="--i: 1">
           <text>✨ 经验{{ result.doubleExp ? '（双倍卡 ×2）' : '' }}</text>
           <text class="br-row-val">+{{ result.expGained }}</text>
@@ -60,12 +78,16 @@
           <text class="br-row-val">Lv.{{ result.level }}</text>
         </view>
         <view class="br-row anim" style="--i: 3">
-          <text>🪙 喵币</text>
-          <text class="br-row-val coin">+{{ result.pointsEarned }}</text>
+          <text>🪙 积分</text>
+          <text class="br-row-val">+{{ result.pointsEarned }}</text>
         </view>
         <view class="br-row anim" style="--i: 4">
           <text>🔥 全勤连击</text>
           <text class="br-row-val streak">{{ result.currentStreak }} 天</text>
+        </view>
+        <view v-if="result.bossKilled != null && result.bossQuota != null" class="br-row anim" style="--i: 4">
+          <text>⚔️ BOSS 讨伐</text>
+          <text class="br-row-val">{{ result.bossKilled }}/{{ result.bossQuota }}</text>
         </view>
         <view v-if="result.unlockedBadges && result.unlockedBadges.length" class="br-row anim" style="--i: 4">
           <text>🏅 解锁徽章</text>

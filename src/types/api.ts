@@ -160,6 +160,18 @@ export interface CheckInResultVO {
   unlockedBadges?: string[]
   /** 是否自动消耗了双倍经验卡（本次经验 ×2） */
   doubleExp?: boolean
+  /** 事件编码：ATTACK/CRIT/STAT/STAT_PLUS/STAT_MINUS/ITEM/ACCESSORY/COIN_PERIOD/NONE */
+  eventCode?: string
+  /** 事件结果像素图编码（美术完成后映射，当前= eventCode） */
+  picCode?: string
+  /** 发现的饰品编码（饰品系统未开放） */
+  accessoryCode?: string | null
+  /** 本局已击杀 BOSS 数 */
+  bossKilled?: number | null
+  /** 本局 BOSS 配额 */
+  bossQuota?: number | null
+  /** 喵币期打卡奖励（仅 COIN_PERIOD 时有值） */
+  coinReward?: number | null
 }
 
 export interface MakeupResultVO {
@@ -261,6 +273,18 @@ export interface DuelVO {
   hidden: boolean
   /** 人数上限（2~50） */
   maxMembers: number
+  /** 组队打卡：全队共享 BOSS 等级 */
+  bossLevel?: number
+  /** 共享 BOSS 名 */
+  bossName?: string | null
+  /** 共享 BOSS 当前血量（×当前成员数） */
+  bossHp?: number | null
+  /** 共享 BOSS 最大血量 */
+  bossMaxHp?: number | null
+  /** 本局已击杀共享 BOSS 数 */
+  bossKilled?: number
+  /** 共享 BOSS 配额 */
+  bossQuota?: number
   depositPerMember: number
   totalDays: number
   startDate: string

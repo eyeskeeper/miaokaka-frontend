@@ -95,3 +95,5 @@ export const impeachLeader = (duelId: number, reason: string) =>
 /** 弹劾投票：vote 0=维持 1=弹劾；一票定死不可改；弹劾票严格过半即成功 */
 export const voteImpeachment = (duelId: number, impeachmentId: number, vote: 0 | 1) =>
   post<DuelVO>(`/duel/${duelId}/impeachment/vote`, { impeachmentId, vote })
+
+// ===== 组队共享 BOSS 字段已并入 DuelVO（bossLevel/bossName/bossHp/bossMaxHp/bossKilled/bossQuota） =====
