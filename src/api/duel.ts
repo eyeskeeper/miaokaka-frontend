@@ -21,8 +21,6 @@ export const createDuel = (data: DuelCreateRequest) => post<DuelVO>('/duel', dat
 
 export const joinDuel = (duelId: number) => post<DuelVO>(`/duel/${duelId}/join`)
 
-export const quitDuel = (duelId: number) => post<DuelVO>(`/duel/${duelId}/quit`)
-
 export const getDuelList = () => get<DuelVO[]>('/duel/list')
 
 export const getDuelDetail = (duelId: number) => get<DuelVO>(`/duel/${duelId}`)

@@ -161,9 +161,6 @@
       <button v-if="duel.status === 0 && !isMember" class="pixel-btn-green" :loading="joining" @tap="doJoin">
         {{ duel.mode === 1 ? '🤝 免押加入' : `💰 押 ${duel.depositPerMember} 喵币 加入` }}
       </button>
-      <button v-if="(duel.status === 0 || (duel.status === 1 && duel.mode === 1)) && isMember && duel.myRole !== 'leader'" class="pixel-btn-sm-red" :loading="quitting" @tap="doQuit">
-        {{ duel.mode === 1 ? '退出组队' : '退出并退款' }}
-      </button>
       <button
         v-if="isMember && !isLeader && duel.status === 1 && !duel.impeachment"
         class="pixel-btn-sm-red"
@@ -242,7 +239,6 @@ import {
   impeachLeader,
   joinDuel,
   nudgeMember,
-  quitDuel,
   removeMember,
   reviewJoinApplication,
   reviewProof,
@@ -267,7 +263,6 @@ const pendingList = ref<ReviewItemVO[]>([])
 const myTodayProofUrl = ref('')
 const joining = ref(false)
 const approvingAll = ref(false)
-const quitting = ref(false)
 const nudgingId = ref<number | null>(null)
 const removingId = ref<number | null>(null)
 const transferTarget = ref<number | null>(null)
@@ -451,29 +446,6 @@ async function doJoin() {
     // 余额不足等
   } finally {
     joining.value = false
-  }
-}
-
-async function doQuit() {
-  if (quitting.value) return
-  const isTeam = duel.value?.mode === 1
-  const done = await new Promise<boolean>((resolve) => {
-    uni.showModal({
-      title: '退出死斗',
-      content: isTeam ? '确定退出该组队打卡？' : '招募期退出全额退款，确定退出？',
-      success: (r) => resolve(!!r.confirm)
-    })
-  })
-  if (!done) return
-  quitting.value = true
-  try {
-    duel.value = await quitDuel(duelId.value)
-    duelStore.applyDuel(duel.value!)
-    uni.showToast({ title: isTeam ? '已退出' : '已退出，押金退回', icon: 'none' })
-  } catch {
-    // 统一提示
-  } finally {
-    quitting.value = false
   }
 }
 
