@@ -88,6 +88,39 @@
       </view>
 
       <view class="form-item">
+        <text class="form-label">凭证审核方式 *</text>
+        <view class="mode-row">
+          <view class="mode-chip" :class="{ active: form.reviewMode === 0 }" @tap="form.reviewMode = 0">
+            <text class="mode-icon">🛡</text>
+            <view class="mode-info">
+              <text class="mode-name">组长审核</text>
+              <text class="mode-desc">凭证统一由组长审</text>
+            </view>
+          </view>
+          <view class="mode-chip" :class="{ active: form.reviewMode === 1 }" @tap="form.reviewMode = 1">
+            <text class="mode-icon">🔄</text>
+            <view class="mode-info">
+              <text class="mode-name">组内互审</text>
+              <text class="mode-desc">每日轮换互相审，组长也被审</text>
+            </view>
+          </view>
+        </view>
+        <text class="field-tip">招募期可改，开赛后锁定；待审超 24 小时自动通过</text>
+      </view>
+
+      <view class="form-item">
+        <view class="hide-row" @tap="form.aiReview = !form.aiReview">
+          <view class="hide-info">
+            <text class="form-label">🤖 AI 预审</text>
+            <text class="hide-desc">AI 判通过直接免人工，建议驳回转人工复核</text>
+          </view>
+          <view class="hide-switch" :class="{ on: form.aiReview }">
+            <view class="switch-knob" />
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
         <text class="form-label">人数上限（2~50 人）*</text>
         <view class="deposit-row">
           <button class="pixel-btn-sm step-btn" @tap="stepMaxMembers(-1)">－</button>
@@ -158,7 +191,9 @@ const form = reactive({
   startDate: '',
   joinMode: 0,
   mode: 0 as 0 | 1,
-  hidden: false
+  hidden: false,
+  reviewMode: 0 as 0 | 1,
+  aiReview: false
 })
 
 /** 每日任务清单（≤5 项，空串在提交时过滤） */
@@ -262,6 +297,8 @@ async function submit() {
       hidden: form.hidden || undefined,
       joinMode: form.joinMode,
       mode: form.mode,
+      reviewMode: form.reviewMode,
+      aiReview: form.aiReview || undefined,
       depositPerMember: form.mode === 0 ? dep : undefined,
       totalDays: days,
       startDate: form.startDate || undefined

@@ -233,6 +233,16 @@ export interface DuelCreateRequest {
   startDate?: string
   /** 0 自由加入 1 需组长审核 */
   joinMode?: number
+  /** 凭证审核方式：0 组长审核（默认）1 组内互审（每日轮换派单） */
+  reviewMode?: number
+  /** AI 预审：判通过直接免人工，建议驳回转人工 */
+  aiReview?: boolean
+}
+
+export interface DuelUpdateRequest {
+  /** 0 组长审核 1 组内互审；不传不改（招募期可改，开赛锁定） */
+  reviewMode?: number
+  aiReview?: boolean
 }
 
 export interface MemberVO {
@@ -271,6 +281,10 @@ export interface DuelVO {
   joinMode: number
   /** 隐藏局：不进招募大厅，仅组号/邀请海报可发现 */
   hidden: boolean
+  /** 凭证审核方式：0 组长审核 1 组内互审 */
+  reviewMode: number
+  /** AI 预审开关 */
+  aiReview: boolean
   /** 人数上限（2~50） */
   maxMembers: number
   /** 组队打卡：全队共享 BOSS 等级 */
@@ -314,13 +328,36 @@ export interface ReviewItemVO {
   userId: number
   userName: string
   userAvatar: string | null
+  /** 组内互审：派单审核员昵称（组长全局视图显示"待谁审"） */
+  assigneeName: string | null
   imageUrl: string
   previewUrl: string
   checkInDate: string
   remark: string | null
-  /** AI 预审建议 */
-  aiSuggestion: number
+  /** AI 预审建议：null 未启用 / 0 建议通过 / 1 建议驳回 */
+  aiSuggestion: number | null
   aiReason: string | null
+}
+
+/** 审核记录（组内公示） */
+export interface ReviewHistoryVO {
+  recordId: number
+  userId: number
+  userName: string
+  checkInDate: string
+  /** 1 通过 2 驳回 */
+  reviewStatus: number
+  /** 人工审核人（AI 免审/超时自动通过为空） */
+  reviewerName: string | null
+  /** 审核人自审公示标记 */
+  selfReview: boolean
+  /** 组内互审派单审核员 */
+  assigneeName: string | null
+  reviewRemark: string | null
+  /** null 未启用 / 0 建议通过 / 1 建议驳回 */
+  aiSuggestion: number | null
+  aiReason: string | null
+  reviewTime: string
 }
 
 // ===== 拍一拍 =====

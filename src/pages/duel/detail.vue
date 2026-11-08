@@ -26,7 +26,7 @@
     <!-- 我的打卡区（进行中且是成员） -->
     <view v-if="isMember && duel.status === 1" class="checkin-card pixel-card">
       <text class="pixel-h2">📸 今日凭证打卡</text>
-      <text class="checkin-tip">上传打卡照片，组长审核通过后生效</text>
+      <text class="checkin-tip">上传打卡照片，{{ duel.reviewMode === 1 ? '当日轮换的组员互审通过后生效' : '组长审核通过后生效' }}</text>
       <view v-if="myTodayProofUrl" class="proof-preview">
         <image class="pixelated" :src="myTodayProofUrl" mode="aspectFill" />
         <text class="proof-wait">⏳ 待组长审核</text>
@@ -61,10 +61,41 @@
       <view v-else-if="taskFrozen" class="dtasks-hint dim">今日打卡流程已走完，任务勾选已冻结</view>
     </view>
 
-    <!-- 组长审核区 -->
-    <view v-if="isLeader && duel.status === 1" class="review-card pixel-card">
+    <!-- 招募期审核设置（组长） -->
+    <view v-if="isLeader && duel.status === 0" class="review-card pixel-card">
+      <text class="pixel-h2">⚙ 审核设置（招募期可改，开赛锁定）</text>
+      <view class="mode-row">
+        <view class="mode-chip" :class="{ active: settingsForm.reviewMode === 0 }" @tap="settingsForm.reviewMode = 0">
+          <text class="mode-icon">🛡</text>
+          <view class="mode-info">
+            <text class="mode-name">组长审核</text>
+            <text class="mode-desc">凭证统一由你审</text>
+          </view>
+        </view>
+        <view class="mode-chip" :class="{ active: settingsForm.reviewMode === 1 }" @tap="settingsForm.reviewMode = 1">
+          <text class="mode-icon">🔄</text>
+          <view class="mode-info">
+            <text class="mode-name">组内互审</text>
+            <text class="mode-desc">每日轮换互相审，你也被成员审</text>
+          </view>
+        </view>
+      </view>
+      <view class="hide-row" @tap="settingsForm.aiReview = !settingsForm.aiReview">
+        <view class="hide-info">
+          <text class="form-label">🤖 AI 预审</text>
+          <text class="hide-desc">AI 判通过直接免人工，建议驳回转人工复核</text>
+        </view>
+        <view class="hide-switch" :class="{ on: settingsForm.aiReview }">
+          <view class="switch-knob" />
+        </view>
+      </view>
+      <button class="pixel-btn-green settings-save" :loading="savingSettings" @tap="saveSettings">保存设置</button>
+    </view>
+
+    <!-- 待审核凭证：组长审核局=组长审全部；互审局=我的派单（全员）+ 组长全队只读 -->
+    <view v-if="duel.status === 1 && isMember" class="review-card pixel-card">
       <view class="flex-between">
-        <text class="pixel-h2">🛡 待审核凭证</text>
+        <text class="pixel-h2">{{ duel.reviewMode === 1 ? '🔄 派给我的待审' : '🛡 待审核凭证' }}</text>
         <button class="pixel-btn-sm-green" @tap="loadPending">刷新</button>
       </view>
       <view v-if="pendingList.length === 0" class="review-empty">暂无待审核凭证</view>
@@ -78,15 +109,63 @@
         <view class="review-info">
           <text class="review-user">{{ item.userName }} · {{ item.checkInDate }}</text>
           <text v-if="item.remark" class="review-remark">{{ item.remark }}</text>
-          <view v-if="item.aiSuggestion !== 0" class="ai-badge" :class="item.aiSuggestion > 0 ? 'ai-pass' : 'ai-reject'">
-            {{ item.aiSuggestion > 0 ? '🤖 AI 建议通过' : '🤖 AI 建议复核' }}
-            <text v-if="item.aiReason">：{{ item.aiReason }}</text>
+          <view v-if="item.aiSuggestion === 0" class="ai-badge ai-pass">
+            🤖 AI 建议通过<text v-if="item.aiReason">：{{ item.aiReason }}</text>
+          </view>
+          <view v-else-if="item.aiSuggestion === 1" class="ai-badge ai-reject">
+            🤖 AI 建议驳回<text v-if="item.aiReason">：{{ item.aiReason }}</text>
           </view>
           <view class="review-btns">
             <button class="pixel-btn-sm-green" @tap="review(item, true)">通过</button>
             <button class="pixel-btn-sm-red" @tap="openReject(item)">驳回</button>
           </view>
         </view>
+      </view>
+    </view>
+
+    <!-- 互审局：组长全队待审视图（只读） -->
+    <view v-if="isLeader && duel.status === 1 && duel.reviewMode === 1" class="review-card pixel-card">
+      <view class="flex-between">
+        <text class="pixel-h2">👁 全队待审（只读）</text>
+        <button class="pixel-btn-sm-green" @tap="loadAllPending">刷新</button>
+      </view>
+      <view v-if="allPendingList.length === 0" class="review-empty">全队暂无待审核凭证</view>
+      <view v-for="item in allPendingList" :key="item.recordId" class="review-item">
+        <image
+          class="pixelated review-img"
+          :src="item.previewUrl || item.imageUrl"
+          mode="aspectFill"
+          @tap="previewImage(item.previewUrl || item.imageUrl)"
+        />
+        <view class="review-info">
+          <text class="review-user">{{ item.userName }} · {{ item.checkInDate }} · 待 {{ item.assigneeName || '—' }} 审</text>
+          <text v-if="item.remark" class="review-remark">{{ item.remark }}</text>
+          <view v-if="item.aiSuggestion === 0" class="ai-badge ai-pass">
+            🤖 AI 建议通过<text v-if="item.aiReason">：{{ item.aiReason }}</text>
+          </view>
+          <view v-else-if="item.aiSuggestion === 1" class="ai-badge ai-reject">
+            🤖 AI 建议驳回<text v-if="item.aiReason">：{{ item.aiReason }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 审核记录（组内公示，进行中可见） -->
+    <view v-if="duel.status === 1 && isMember" class="review-card pixel-card">
+      <view class="flex-between">
+        <text class="pixel-h2">📜 审核记录（公示）</text>
+        <button class="pixel-btn-sm" @tap="loadHistory">刷新</button>
+      </view>
+      <view v-if="historyList.length === 0" class="review-empty">暂无审核记录</view>
+      <view v-for="h in historyList" :key="h.recordId" class="history-row">
+        <text class="history-main">
+          {{ h.userName }} · {{ h.checkInDate }} ·
+          <text :class="h.reviewStatus === 1 ? 'st-pass' : 'st-reject'">{{ h.reviewStatus === 1 ? '通过' : '驳回' }}</text>
+          <text v-if="h.selfReview" class="history-self">（自审）</text>
+        </text>
+        <text v-if="h.reviewerName" class="history-sub">审核人：{{ h.reviewerName }}</text>
+        <text v-else-if="h.reviewRemark" class="history-sub dim">{{ h.reviewRemark }}</text>
+        <text v-if="h.reviewRemark && h.reviewerName" class="history-sub">理由：{{ h.reviewRemark }}</text>
       </view>
     </view>
 
@@ -236,6 +315,7 @@ import {
   getInvitePoster,
   getJoinApplications,
   getPendingReviews,
+  getReviewHistory,
   impeachLeader,
   joinDuel,
   nudgeMember,
@@ -243,6 +323,7 @@ import {
   reviewJoinApplication,
   reviewProof,
   transferLeader,
+  updateDuelSettings,
   voteImpeachment
 } from '@/api/duel'
 import { BASE_URL } from '@/config'
@@ -251,7 +332,14 @@ import { toggleTask } from '@/api/plan'
 import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
-import type { DuelVO, InviteVO, JoinRequestVO, MemberVO, ReviewItemVO } from '@/types/api'
+import type {
+  DuelVO,
+  InviteVO,
+  JoinRequestVO,
+  MemberVO,
+  ReviewHistoryVO,
+  ReviewItemVO
+} from '@/types/api'
 import { uploadDuelProof } from '@/utils/upload'
 
 const duelStore = useDuelStore()
@@ -260,6 +348,10 @@ const userStore = useUserStore()
 const duelId = ref(0)
 const duel = ref<DuelVO | null>(null)
 const pendingList = ref<ReviewItemVO[]>([])
+const allPendingList = ref<ReviewItemVO[]>([])
+const historyList = ref<ReviewHistoryVO[]>([])
+const settingsForm = ref({ reviewMode: 0 as 0 | 1, aiReview: false })
+const savingSettings = ref(false)
 const myTodayProofUrl = ref('')
 const joining = ref(false)
 const approvingAll = ref(false)
@@ -357,10 +449,21 @@ async function load() {
   try {
     duel.value = await getDuelDetail(duelId.value)
     syncDtaskProgress()
-    if (isLeader.value && duel.value.status === 1) {
-      loadPending()
+    if (duel.value.status === 1 && isMember.value) {
+      // 互审局每位成员（含组长）都拉"派给我的"；组长审核局仅组长有列表
+      if (duel.value.reviewMode === 1 || isLeader.value) {
+        loadPending()
+      }
+      if (duel.value.reviewMode === 1 && isLeader.value) {
+        loadAllPending()
+      }
+      loadHistory()
     }
     if (isLeader.value && duel.value.status === 0) {
+      settingsForm.value = {
+        reviewMode: (duel.value.reviewMode ?? 0) as 0 | 1,
+        aiReview: !!duel.value.aiReview
+      }
       loadJoinRequests()
     }
   } catch {
@@ -373,6 +476,39 @@ async function loadPending() {
     pendingList.value = (await getPendingReviews(duelId.value)) || []
   } catch {
     // 统一提示
+  }
+}
+
+async function loadAllPending() {
+  try {
+    allPendingList.value = (await getPendingReviews(duelId.value, 'all')) || []
+  } catch {
+    // 统一提示
+  }
+}
+
+async function loadHistory() {
+  try {
+    historyList.value = (await getReviewHistory(duelId.value)) || []
+  } catch {
+    // 统一提示
+  }
+}
+
+async function saveSettings() {
+  if (savingSettings.value) return
+  savingSettings.value = true
+  try {
+    duel.value = await updateDuelSettings(duelId.value, {
+      reviewMode: settingsForm.value.reviewMode,
+      aiReview: settingsForm.value.aiReview
+    })
+    duelStore.applyDuel(duel.value!)
+    uni.showToast({ title: '审核设置已保存', icon: 'success' })
+  } catch {
+    // 统一提示
+  } finally {
+    savingSettings.value = false
   }
 }
 
@@ -477,16 +613,28 @@ function confirmModal(title: string, content: string): Promise<boolean> {
 
 async function onRemove(m: MemberVO) {
   if (removingId.value) return
-  const done = await confirmModal(
-    '移除成员',
-    `确定移除「${m.userName}」？招募中全额退款；进行中按剩余天数退款，缺勤份额入奖池`
-  )
+  // 进行中若移除后仅剩组长一人，小组将自动解散——二次强确认
+  const activeCount = (duel.value?.members || []).filter((x) => x.status === 0 || x.status === 1).length
+  const willDissolve = duel.value?.status === 1 && activeCount <= 2
+  const done = willDissolve
+    ? await new Promise<boolean>((resolve) => {
+        uni.showModal({
+          title: '移除将解散小组',
+          content: `移除「${m.userName}」后小组仅剩你一人，将立即解散（待审凭证自动通过，押金按剩余天数退还）。确定继续？`,
+          confirmText: '解散并移除',
+          success: (r) => resolve(!!r.confirm)
+        })
+      })
+    : await confirmModal(
+        '移除成员',
+        `确定移除「${m.userName}」？招募中全额退款；进行中按剩余天数退款，缺勤份额入奖池`
+      )
   if (!done) return
   removingId.value = m.userId
   try {
     duel.value = await removeMember(duelId.value, m.userId)
     duelStore.applyDuel(duel.value!)
-    uni.showToast({ title: '已移除', icon: 'none' })
+    uni.showToast({ title: duel.value?.status === 3 ? '已移除，小组已解散' : '已移除', icon: 'none' })
   } catch {
     // 统一提示
   } finally {
@@ -904,6 +1052,139 @@ const statusClass = (status: number) =>
       gap: 12rpx;
       margin-top: 12rpx;
     }
+  }
+
+  .history-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+    margin-top: 14rpx;
+    padding: 10rpx 14rpx;
+    @include pixel-block;
+
+    .history-main {
+      font-size: 24rpx;
+      font-weight: 700;
+      color: $pixel-ink;
+
+      .st-pass {
+        color: $pixel-green-dark;
+      }
+
+      .st-reject {
+        color: $pixel-red;
+      }
+
+      .history-self {
+        font-size: 20rpx;
+        color: $pixel-ink-light;
+      }
+    }
+
+    .history-sub {
+      font-size: 22rpx;
+      color: $pixel-ink-light;
+
+      &.dim {
+        color: $pixel-ink-light;
+      }
+    }
+  }
+
+  .mode-row {
+    display: flex;
+    gap: 16rpx;
+    margin-top: 16rpx;
+  }
+
+  .mode-chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    padding: 14rpx;
+    border: 3rpx solid $pixel-ink;
+    background: $pixel-bg;
+
+    &.active {
+      background: $pixel-green;
+      color: #fff;
+    }
+
+    .mode-icon {
+      font-size: 32rpx;
+    }
+
+    .mode-info {
+      display: flex;
+      flex-direction: column;
+
+      .mode-name {
+        font-size: 24rpx;
+        font-weight: 900;
+      }
+
+      .mode-desc {
+        font-size: 20rpx;
+        opacity: 0.8;
+      }
+    }
+  }
+
+  .hide-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20rpx;
+
+    .hide-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+    }
+
+    .form-label {
+      font-size: 26rpx;
+      font-weight: 900;
+      color: $pixel-ink;
+    }
+
+    .hide-desc {
+      font-size: 20rpx;
+      color: $pixel-ink-light;
+    }
+
+    .hide-switch {
+      width: 84rpx;
+      height: 44rpx;
+      border: 3rpx solid $pixel-ink;
+      background: $pixel-bg;
+      position: relative;
+      flex-shrink: 0;
+
+      .switch-knob {
+        position: absolute;
+        top: 4rpx;
+        left: 6rpx;
+        width: 28rpx;
+        height: 28rpx;
+        background: $pixel-ink;
+        transition: transform 0.15s;
+      }
+
+      &.on {
+        background: $pixel-green;
+
+        .switch-knob {
+          transform: translateX(40rpx);
+          background: #fff;
+        }
+      }
+    }
+  }
+
+  .settings-save {
+    margin-top: 20rpx;
   }
 }
 

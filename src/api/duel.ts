@@ -1,6 +1,7 @@
 import type {
   ApplicationsApproveAllVO,
   DuelCreateRequest,
+  DuelUpdateRequest,
   DuelVO,
   InviteInfoVO,
   HallDuelVO,
@@ -12,12 +13,17 @@ import type {
   NudgeInboxVO,
   NudgeSentVO,
   NudgeTemplateVO,
+  ReviewHistoryVO,
   ReviewItemVO
 } from '@/types/api'
 import type { CheckInResultVO } from '@/types/api'
 import { get, post, put } from '@/utils/request'
 
 export const createDuel = (data: DuelCreateRequest) => post<DuelVO>('/duel', data)
+
+/** 招募期修改审核设置（仅组长，开赛锁定） */
+export const updateDuelSettings = (duelId: number, data: DuelUpdateRequest) =>
+  put<DuelVO>(`/duel/${duelId}`, data)
 
 export const joinDuel = (duelId: number) => post<DuelVO>(`/duel/${duelId}/join`)
 
@@ -33,8 +39,13 @@ export const nudgeMember = (duelId: number, targetUserId: number) =>
 export const reviewProof = (duelId: number, recordId: number, approve: boolean, reviewRemark?: string) =>
   post<CheckInResultVO>(`/duel/${duelId}/review`, { recordId, approve, reviewRemark })
 
-export const getPendingReviews = (duelId: number) =>
-  get<ReviewItemVO[]>(`/duel/${duelId}/review/pending`)
+/** 待审凭证：互审局 mine=派给我的（默认）；all=全队只读（仅组长） */
+export const getPendingReviews = (duelId: number, scope: 'mine' | 'all' = 'mine') =>
+  get<ReviewItemVO[]>(`/duel/${duelId}/review/pending`, { scope })
+
+/** 审核记录（组内公示，最近 50 条） */
+export const getReviewHistory = (duelId: number) =>
+  get<ReviewHistoryVO[]>(`/duel/${duelId}/review/history`)
 
 /** 我的待收拍一拍：读取即消费 */
 export const getMyNudges = () => get<NudgeInboxVO>('/nudge/mine')

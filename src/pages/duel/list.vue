@@ -17,7 +17,7 @@
           <text>奖池 {{ duel.totalPool }}</text>
         </view>
         <view class="meta-chip"><text>⏳ {{ duel.totalDays }} 天</text></view>
-        <view v-if="duel.pendingCount > 0 && duel.myRole === 'leader'" class="meta-chip pending">
+        <view v-if="duel.pendingCount > 0" class="meta-chip pending">
           <text>待审核 {{ duel.pendingCount }}</text>
         </view>
         <view v-if="applyCounts[duel.id]" class="meta-chip apply-chip">

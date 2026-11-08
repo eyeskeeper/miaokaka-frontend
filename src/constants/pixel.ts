@@ -71,7 +71,7 @@ export const DAY_STATUS = {
   pending: 3
 } as const
 
-// ===== AI 预审建议 =====
+// ===== AI 预审建议（后端口径：null 未启用 / 0 建议通过 / 1 建议驳回） =====
 
-export const aiSuggestionLabel = (suggestion: number) =>
-  ({ 1: 'AI 建议通过', 0: 'AI 建议人工复核', [-1]: 'AI 建议驳回' } as Record<number, string>)[suggestion] ?? ''
+export const aiSuggestionLabel = (suggestion: number | null | undefined) =>
+  suggestion === 0 ? 'AI 建议通过' : suggestion === 1 ? 'AI 建议驳回' : ''
