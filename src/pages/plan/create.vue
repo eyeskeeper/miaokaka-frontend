@@ -1,7 +1,7 @@
 <template>
   <view class="create-page">
-    <!-- AI 生成入口 -->
-    <view v-if="!editId" class="ai-card pixel-card">
+    <!-- AI 生成入口（10 分钟习惯模式无清单，隐藏） -->
+    <view v-if="!editId && form.planMode === 0" class="ai-card pixel-card">
       <view class="ai-head">
         <text class="pixel-h2">🤖 AI 帮我想</text>
         <text class="ai-tip">一句话描述，自动生成计划草稿</text>
@@ -21,6 +21,28 @@
 
     <!-- 表单 -->
     <view class="form pixel-card">
+      <view class="form-item">
+        <text class="form-label">计划模式 *</text>
+        <view class="type-grid">
+          <view
+            class="type-chip"
+            :class="{ active: form.planMode === 0, disabled: !!editId }"
+            @tap="!editId && (form.planMode = 0)"
+          >
+            📅 普通打卡
+          </view>
+          <view
+            class="type-chip"
+            :class="{ active: form.planMode === 1, disabled: !!editId }"
+            @tap="!editId && (form.planMode = 1)"
+          >
+            ⏱ 10分钟习惯
+          </view>
+        </view>
+        <text v-if="editId" class="mode-tip dim">创建后模式不可更改</text>
+        <text v-else-if="form.planMode === 1" class="mode-tip">开始后倒计时 10 分钟，坚持满即可打卡；超过后转为正计时，看看自己能多坚持多久</text>
+      </view>
+
       <view class="form-item">
         <text class="form-label">计划名称 *</text>
         <input
@@ -59,7 +81,7 @@
         />
       </view>
 
-      <view class="form-item">
+      <view v-if="form.planMode === 0" class="form-item">
         <text class="form-label">每日任务（最多 5 项，勾满自动打卡）</text>
         <view class="task-list">
           <view v-for="(task, i) in tasks" :key="i" class="task-row">
@@ -116,6 +138,7 @@ const form = reactive({
   planName: '',
   planDesc: '',
   planType: 0,
+  planMode: 0 as 0 | 1,
   remindTime: ''
 })
 
@@ -171,6 +194,7 @@ onLoad(async (options) => {
     form.planName = plan.planName
     form.planDesc = plan.planDesc || ''
     form.planType = plan.planType
+    form.planMode = (plan.planMode ?? 0) as 0 | 1
     form.remindTime = plan.remindTime || ''
     targetDaysText.value = plan.targetDays ? String(plan.targetDays) : ''
     tasks.value = (plan.dailyTasks || []).slice(0, 5)
@@ -223,7 +247,8 @@ async function submit() {
     return
   }
   const targetDays = Math.max(0, Math.min(3650, Number(targetDaysText.value) || 0))
-  const dailyTasks = tasks.value.map((t) => t.trim()).filter(Boolean).slice(0, 5)
+  const tenMin = form.planMode === 1
+  const dailyTasks = tenMin ? [] : tasks.value.map((t) => t.trim()).filter(Boolean).slice(0, 5)
 
   submitting.value = true
   try {
@@ -231,6 +256,7 @@ async function submit() {
       planName: name,
       planDesc: form.planDesc.trim() || undefined,
       planType: form.planType,
+      planMode: form.planMode,
       targetDays,
       remindTime: form.remindTime || undefined,
       dailyTasks
@@ -240,7 +266,7 @@ async function submit() {
       uni.showToast({ title: '已保存', icon: 'success' })
     } else {
       await createPlan(payload)
-      uni.showToast({ title: '创建成功，猫猫已加入！', icon: 'success' })
+      uni.showToast({ title: tenMin ? '10分钟习惯已创建！' : '创建成功，猫猫已加入！', icon: 'success' })
     }
     setTimeout(() => uni.navigateBack(), 800)
   } catch {
@@ -346,6 +372,21 @@ async function submit() {
       background: $pixel-primary;
       color: #fff;
     }
+
+    &.disabled {
+      opacity: 0.55;
+    }
+  }
+}
+
+.mode-tip {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: $pixel-ink-light;
+
+  &.dim {
+    color: $pixel-ink-light;
   }
 }
 

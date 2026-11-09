@@ -71,6 +71,29 @@
             </view>
           </view>
 
+          <!-- ⏱10分钟习惯：计时打卡（未开始/倒计时/正计时/今日成果四态） -->
+          <view
+            v-if="plan.planMode === 1 && plan.status === 0 && !isDuelPlan(plan)
+              && (!plan.todayChecked || timerSessions[plan.id]?.doneDuration)"
+            class="card-foot timer-foot"
+            @tap.stop="onTimerTap(plan)"
+          >
+            <template v-if="!timerSessions[plan.id] && !plan.todayChecked">
+              <text class="foot-main">▶ 开始 10 分钟专注</text>
+              <text class="foot-arrow">⏱ ›</text>
+            </template>
+            <template v-else-if="timerSessions[plan.id] && !plan.todayChecked && elapsedOf(plan.id) < TENMIN">
+              <text class="foot-main timer-counting">⏱ 还剩 {{ fmtDuration(TENMIN - elapsedOf(plan.id)) }}</text>
+              <text class="foot-giveup" @tap.stop="onGiveUp(plan)">放弃</text>
+            </template>
+            <template v-else-if="timerSessions[plan.id] && !plan.todayChecked">
+              <text class="foot-main timer-overtime">🔥 已坚持 {{ fmtDuration(elapsedOf(plan.id)) }} · 点击完成打卡</text>
+            </template>
+            <template v-else>
+              <text class="foot-main timer-done">✓ 今日坚持 {{ fmtDuration(timerSessions[plan.id]?.doneDuration ?? TENMIN) }}</text>
+            </template>
+          </view>
+
           <!-- 招募中的死斗：开赛前没有打卡，只给入口提示 -->
           <view
             v-if="isDuelPlan(plan) && duelRecruiting(plan) && plan.status === 0 && !plan.todayChecked"
@@ -91,9 +114,9 @@
             <text class="foot-arrow">📷 ›</text>
           </view>
 
-          <!-- 无每日任务：普通计划一键打卡；死斗计划去详情传凭证 -->
+          <!-- 无每日任务：普通计划一键打卡；死斗计划去详情传凭证（10分钟习惯走上面的计时分支） -->
           <view
-            v-else-if="plan.status === 0 && !plan.todayChecked && !(plan.dailyTasks && plan.dailyTasks.length)"
+            v-else-if="plan.planMode !== 1 && plan.status === 0 && !plan.todayChecked && !(plan.dailyTasks && plan.dailyTasks.length)"
             class="card-foot"
             @tap.stop="isDuelPlan(plan) ? goDuelDetail(plan) : directCheckIn(plan)"
           >
@@ -138,6 +161,16 @@ import { useDuelStore } from '@/stores/duel'
 import { usePlanStore } from '@/stores/plan'
 import { useUserStore } from '@/stores/user'
 import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
+import {
+  TENMIN_TARGET_SECONDS,
+  clearTimerSession,
+  elapsedSeconds,
+  finishTimerSession,
+  fmtDuration,
+  loadTimerSession,
+  startTimerSession
+} from '@/utils/timerState'
+import { onMounted, onUnmounted } from 'vue'
 import type { CheckInResultVO, PlanVO } from '@/types/api'
 
 const planStore = usePlanStore()
@@ -149,6 +182,83 @@ const battleResult = ref<CheckInResultVO | null>(null)
 const battlePlanId = ref<number | null>(null)
 /** 每计划的今日任务位图本地状态（与详情页共享按天缓存） */
 const taskProgress = reactive<Record<number, string>>({})
+
+// ===== ⏱10分钟习惯：本地计时会话（按天，storage 持久化，跨天自动作废） =====
+
+const TENMIN = TENMIN_TARGET_SECONDS
+/** planId -> 当日会话（null=未开始/跨天作废） */
+const timerSessions = reactive<Record<number, { startAt: number; doneDuration?: number } | null>>({})
+/** 每秒跳动的当前时刻，驱动倒计时/正计时刷新 */
+const nowTick = ref(Date.now())
+let tickTimer: ReturnType<typeof setInterval> | null = null
+
+function refreshTimerSessions() {
+  for (const p of planStore.plans) {
+    if (p.planMode === 1) {
+      timerSessions[p.id] = loadTimerSession(p.id)
+    }
+  }
+}
+
+function elapsedOf(planId: number): number {
+  const s = timerSessions[planId]
+  return s ? Math.max(0, Math.floor((nowTick.value - s.startAt) / 1000)) : 0
+}
+
+function onTimerTap(plan: PlanVO) {
+  if (plan.todayChecked || plan.status !== 0) return
+  const session = timerSessions[plan.id]
+  if (!session) {
+    startTimerSession(plan.id)
+    timerSessions[plan.id] = loadTimerSession(plan.id)
+    uni.showToast({ title: '专注开始，10 分钟后回来打卡', icon: 'none' })
+    return
+  }
+  const elapsed = elapsedOf(plan.id)
+  if (elapsed < TENMIN) {
+    uni.showToast({ title: `还剩 ${fmtDuration(TENMIN - elapsed)}，坚持一下！`, icon: 'none' })
+    return
+  }
+  doTimerCheckIn(plan, elapsed)
+}
+
+function onGiveUp(plan: PlanVO) {
+  uni.showModal({
+    title: '放弃本次专注',
+    content: '本次坚持将不作数，随时可以重新开始。确定放弃？',
+    success: (r) => {
+      if (!r.confirm) return
+      clearTimerSession(plan.id)
+      timerSessions[plan.id] = null
+      uni.showToast({ title: '已放弃，重新开始吧', icon: 'none' })
+    }
+  })
+}
+
+async function doTimerCheckIn(plan: PlanVO, elapsed: number) {
+  battlePlanId.value = plan.id
+  try {
+    battleResult.value = await checkIn({
+      planId: plan.id,
+      remark: `⏱ 实际坚持 ${fmtDuration(elapsed)}`
+    })
+    showBattle.value = true
+    finishTimerSession(plan.id, elapsed)
+    timerSessions[plan.id] = loadTimerSession(plan.id)
+    planStore.fetchPlans(true)
+    userStore.fetchMe()
+  } catch {
+    // 错误已统一提示
+  }
+}
+
+onMounted(() => {
+  tickTimer = setInterval(() => (nowTick.value = Date.now()), 1000)
+})
+
+onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer)
+})
 
 /** 死斗影子计划：planId -> {duelId, status}（DuelVO.myPlanId 反查） */
 const duelPlanMap = computed(() => {
@@ -270,6 +380,7 @@ onShow(() => {
     .fetchPlans(true)
     .then(() => {
       syncTaskProgress()
+      refreshTimerSessions()
       // #ifdef APP-PLUS
       remindLocalPush()
       // #endif
@@ -596,6 +707,40 @@ function goRanking() {
   &.recruit-foot {
     background: $pixel-card-alt;
     color: $pixel-ink-light;
+  }
+
+  // ⏱10分钟习惯：倒计时禁点（灰）、正计时高亮（绿）、完成定格（黄）
+  &.timer-foot {
+    .foot-main {
+      flex: 1;
+    }
+
+    .timer-counting {
+      color: $pixel-ink;
+      font-size: 30rpx;
+      font-weight: 900;
+      letter-spacing: 2rpx;
+    }
+
+    .timer-overtime {
+      color: $pixel-green-dark;
+      font-weight: 900;
+      font-size: 26rpx;
+    }
+
+    .timer-done {
+      color: $pixel-primary-dark;
+    }
+
+    .foot-giveup {
+      flex-shrink: 0;
+      margin-left: 16rpx;
+      font-size: 20rpx;
+      font-weight: 400;
+      color: $pixel-ink-light;
+      text-decoration: underline;
+      padding: 8rpx 12rpx;
+    }
   }
 }
 

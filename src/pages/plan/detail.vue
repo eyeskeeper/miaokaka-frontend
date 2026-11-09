@@ -40,9 +40,19 @@
         </view>
       </view>
 
-      <!-- 今日状态 / 打卡按钮 -->
+      <!-- 今日状态 / 打卡按钮：⏱10分钟习惯走计时交互，普通计划走原按钮 -->
+      <template v-if="plan.planMode === 1 && plan.status === 0">
+        <button v-if="!plan.todayChecked" class="pixel-btn check-btn" :class="timerBtnClass" :loading="checking" @tap="onTimerTap">
+          {{ timerBtnText }}
+        </button>
+        <text v-if="!plan.todayChecked && timerSession" class="tenmin-giveup" @tap="onGiveUpTimer">放弃本次专注</text>
+        <view v-else-if="timerSession?.doneDuration" class="done-banner">
+          ✓ 今日坚持 {{ fmtDuration(timerSession.doneDuration) }}{{ timerSession.doneDuration > TENMIN ? '，超额完成！' : '' }}
+        </view>
+        <view v-else class="done-banner">✓ 今日已打卡，明天再来！</view>
+      </template>
       <button
-        v-if="plan.status === 0 && !plan.todayChecked && !hasTasks"
+        v-else-if="plan.status === 0 && !plan.todayChecked && !hasTasks"
         class="pixel-btn check-btn"
         :loading="checking"
         @tap="doCheckIn"
@@ -126,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import { checkIn, makeupCheckIn } from '@/api/checkin'
@@ -134,6 +144,14 @@ import { getMallBag } from '@/api/mall'
 import { deletePlan, getPlanDetail, renameCat, toggleTask, updatePlan } from '@/api/plan'
 import BattleResult from '@/components/battle-result/battle-result.vue'
 import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
+import {
+  TENMIN_TARGET_SECONDS,
+  clearTimerSession,
+  finishTimerSession,
+  fmtDuration,
+  loadTimerSession,
+  startTimerSession
+} from '@/utils/timerState'
 import CheckinCalendar from '@/components/checkin-calendar/checkin-calendar.vue'
 import PixelCat from '@/components/pixel-cat/pixel-cat.vue'
 import { bossSprite } from '@/constants/pixel'
@@ -150,6 +168,82 @@ const checking = ref(false)
 const showBattle = ref(false)
 const battleResult = ref<CheckInResultVO | null>(null)
 const calendarRef = ref<{ reload: () => void } | null>(null)
+
+// ===== ⏱10分钟习惯：当日计时会话（与首页共享 storage，按天生效） =====
+
+const TENMIN = TENMIN_TARGET_SECONDS
+const timerSession = ref<{ startAt: number; doneDuration?: number } | null>(null)
+const nowTick = ref(Date.now())
+let tickTimer: ReturnType<typeof setInterval> | null = null
+
+const timerElapsed = computed(() =>
+  timerSession.value ? Math.max(0, Math.floor((nowTick.value - timerSession.value.startAt) / 1000)) : 0
+)
+
+const timerBtnText = computed(() => {
+  if (!timerSession.value) return '▶ 开始 10 分钟专注'
+  if (timerElapsed.value < TENMIN) return `⏱ 还剩 ${fmtDuration(TENMIN - timerElapsed.value)}`
+  return `🔥 已坚持 ${fmtDuration(timerElapsed.value)} · 完成打卡`
+})
+
+const timerBtnClass = computed(() => {
+  if (!timerSession.value) return ''
+  return timerElapsed.value < TENMIN ? 'tenmin-counting' : 'tenmin-overtime'
+})
+
+function onTimerTap() {
+  const p = plan.value
+  if (!p || p.todayChecked || p.status !== 0) return
+  if (!timerSession.value) {
+    startTimerSession(planId.value)
+    timerSession.value = loadTimerSession(planId.value)
+    uni.showToast({ title: '专注开始，10 分钟后回来打卡', icon: 'none' })
+    return
+  }
+  if (timerElapsed.value < TENMIN) {
+    uni.showToast({ title: `还剩 ${fmtDuration(TENMIN - timerElapsed.value)}，坚持一下！`, icon: 'none' })
+    return
+  }
+  doTimerCheckIn()
+}
+
+function onGiveUpTimer() {
+  uni.showModal({
+    title: '放弃本次专注',
+    content: '本次坚持将不作数，随时可以重新开始。确定放弃？',
+    success: (r) => {
+      if (!r.confirm) return
+      clearTimerSession(planId.value)
+      timerSession.value = null
+      uni.showToast({ title: '已放弃，重新开始吧', icon: 'none' })
+    }
+  })
+}
+
+async function doTimerCheckIn() {
+  if (checking.value) return
+  checking.value = true
+  const elapsed = timerElapsed.value
+  try {
+    battleResult.value = await checkIn({
+      planId: planId.value,
+      remark: `⏱ 实际坚持 ${fmtDuration(elapsed)}`
+    })
+    showBattle.value = true
+    finishTimerSession(planId.value, elapsed)
+    timerSession.value = loadTimerSession(planId.value)
+    refreshAfterSettle()
+  } catch {
+    // 统一提示
+  } finally {
+    checking.value = false
+  }
+}
+
+onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer)
+  tickTimer = null
+})
 
 // 任务勾选（后端未暴露今日位图，本地按天缓存兜底；toggle 为幂等赋值，重复发送安全）
 const taskDone = reactive<boolean[]>([])
@@ -194,6 +288,13 @@ async function load() {
   try {
     plan.value = await getPlanDetail(planId.value)
     loadTaskCache()
+    // ⏱10分钟习惯：恢复当日会话并启动秒级刷新
+    if (plan.value.planMode === 1) {
+      timerSession.value = loadTimerSession(planId.value)
+      if (!tickTimer) {
+        tickTimer = setInterval(() => (nowTick.value = Date.now()), 1000)
+      }
+    }
   } catch {
     uni.showToast({ title: '计划加载失败', icon: 'none' })
   }
@@ -481,6 +582,28 @@ function confirmDelete() {
     width: 100%;
     margin-top: 24rpx;
     font-size: 32rpx;
+
+    // ⏱10分钟习惯：倒计时态加宽字号、正计时态绿色高亮
+    &.tenmin-counting {
+      font-size: 40rpx;
+      letter-spacing: 4rpx;
+      background: $pixel-card-alt;
+      color: $pixel-ink;
+    }
+
+    &.tenmin-overtime {
+      background: $pixel-green;
+    }
+  }
+
+  .tenmin-giveup {
+    display: block;
+    margin-top: 14rpx;
+    text-align: center;
+    font-size: 22rpx;
+    color: $pixel-ink-light;
+    text-decoration: underline;
+    padding: 6rpx 0;
   }
 
   .done-banner {

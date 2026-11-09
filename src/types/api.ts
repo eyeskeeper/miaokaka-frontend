@@ -81,6 +81,8 @@ export interface PlanVO {
   planName: string
   planDesc: string | null
   planType: number
+  /** 0 普通打卡 1 ⏱10分钟习惯（前端本地计时） */
+  planMode: number
   targetDays: number
   remindTime: string | null
   dailyTasks: string[] | null
@@ -97,10 +99,12 @@ export interface PlanCreateRequest {
   planName: string
   planDesc?: string
   planType?: number
+  /** 0 普通打卡（默认）1 ⏱10分钟习惯——无任务清单，打卡按钮为计时器 */
+  planMode?: number
   targetDays?: number
   /** HH:mm 或空串 */
   remindTime?: string
-  /** 最多 5 项每日任务 */
+  /** 最多 5 项每日任务（10 分钟模式忽略） */
   dailyTasks?: string[]
 }
 
