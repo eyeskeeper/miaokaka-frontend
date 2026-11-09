@@ -312,6 +312,10 @@ export interface DuelVO {
   myStatus: number
   myPlanId: number | null
   pendingCount: number
+  /** 互审局组长：待仲裁上诉数 */
+  appealPendingCount: number | null
+  /** 我是否已用掉本局举报（每人每局限一次） */
+  myReported: boolean | null
   /** 我的加入申请状态：null 无申请 / 0 待审 / 1 已通过 / 2 已拒绝 */
   myApplyStatus: number | null
   /** 我对进行中弹劾的投票：null 未投 / 0 维持 / 1 弹劾 */
@@ -342,6 +346,8 @@ export interface ReviewItemVO {
 /** 审核记录（组内公示） */
 export interface ReviewHistoryVO {
   recordId: number
+  /** 凭证id（上诉/举报入口） */
+  evidenceId: number
   userId: number
   userName: string
   checkInDate: string
@@ -358,6 +364,62 @@ export interface ReviewHistoryVO {
   aiSuggestion: number | null
   aiReason: string | null
   reviewTime: string
+  /** 上诉状态（互审局；null=未上诉）：0待仲裁 1改判 2维持 3超时自动改判 */
+  appealStatus: number | null
+  appealReason: string | null
+  /** 已被上诉/举报改判（公示红标） */
+  overturned: boolean | null
+}
+
+/** 组长待仲裁上诉条目（互审局） */
+export interface AppealPendingVO {
+  appealId: number
+  recordId: number
+  evidenceId: number
+  userId: number
+  userName: string
+  userAvatar: string | null
+  checkInDate: string
+  imageUrl: string
+  previewUrl: string
+  remark: string | null
+  /** 原驳回理由 */
+  rejectRemark: string | null
+  appealReason: string
+  /** 仲裁截止（超时自动改判通过） */
+  deadline: string
+  createTime: string
+}
+
+/** admin 举报处理条目（含完整审核/上诉链） */
+export interface ReportAdminVO {
+  id: number
+  duelId: number
+  duelName: string
+  /** 0 招募 1 进行 2 已结算 3 已解散——非进行中不可改判 */
+  duelStatus: number
+  peerReview: boolean
+  leaderName: string
+  reporterId: number
+  reporterName: string
+  reason: string
+  createTime: string
+  /** 0待处理 1改判通过 2维持原判 3无法处理 */
+  status: number
+  handleRemark: string | null
+  handleTime: string | null
+  evidenceId: number
+  recordId: number
+  submitterName: string
+  checkInDate: string
+  imageUrl: string
+  previewUrl: string
+  rejectRemark: string | null
+  reviewerName: string
+  /** 该凭证上诉状态（互审局举报必有） */
+  appealStatus: number | null
+  appealReason: string | null
+  appealHandleRemark: string | null
 }
 
 // ===== 拍一拍 =====

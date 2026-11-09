@@ -4,6 +4,7 @@
     <view class="tab-row pixel-card">
       <text class="tab-chip" :class="{ active: tab === 'users' }" @tap="tab = 'users'">👤 用户管理</text>
       <text class="tab-chip" :class="{ active: tab === 'dash' }" @tap="switchDash">📊 数据看板</text>
+      <text class="tab-chip" :class="{ active: tab === 'reports' }" @tap="switchReports">🚨 举报处理{{ reportPendingCount ? `(${reportPendingCount})` : '' }}</text>
     </view>
 
     <!-- 搜索 / 角色筛选 -->
@@ -125,6 +126,46 @@
       </view>
     </view>
 
+    <!-- 举报处理 -->
+    <view v-if="tab === 'reports'" class="list pixel-card">
+      <view class="flex-between" style="margin-bottom: 12rpx">
+        <text class="pixel-h2">🚨 举报处理</text>
+        <view class="seg">
+          <button class="pixel-btn-sm" :class="{ 'seg-active': reportStatusFilter === undefined }" @tap="setReportFilter(undefined)">全部</button>
+          <button class="pixel-btn-sm" :class="{ 'seg-active': reportStatusFilter === 0 }" @tap="setReportFilter(0)">待处理</button>
+          <button class="pixel-btn-sm" :class="{ 'seg-active': reportStatusFilter === 1 }" @tap="setReportFilter(1)">已改判</button>
+          <button class="pixel-btn-sm" :class="{ 'seg-active': reportStatusFilter === 2 }" @tap="setReportFilter(2)">已维持</button>
+        </view>
+      </view>
+      <view v-if="reports.length === 0" class="empty-tip">暂无举报</view>
+      <view v-for="r in reports" :key="r.id" class="report-row">
+        <view class="report-head">
+          <text class="report-title">#{{ r.id }} {{ r.duelName }}<text class="pixel-tag" :class="reportTagClass(r.status)">{{ reportStatusText(r.status) }}</text></text>
+          <text class="report-sub">举报人 {{ r.reporterName }} · {{ fmtTime(r.createTime) }}</text>
+          <text class="report-sub">被举报凭证：{{ r.submitterName }} {{ r.checkInDate }} · 原驳回：{{ r.rejectRemark || '无' }}</text>
+          <text class="report-reason">理由：{{ r.reason }}</text>
+          <text v-if="r.appealStatus !== null" class="report-sub">上诉链：{{ appealStatusText(r.appealStatus) }} {{ r.appealReason ? '· ' + r.appealReason : '' }}</text>
+          <text v-if="r.handleRemark" class="report-sub">处理：{{ r.handleRemark }}</text>
+        </view>
+        <image
+          class="pixelated report-img"
+          :src="r.previewUrl || r.imageUrl"
+          mode="aspectFill"
+          @tap="previewImg(r.previewUrl || r.imageUrl)"
+        />
+        <view v-if="r.status === 0" class="report-ops">
+          <button class="pixel-btn-sm-green" :loading="resolvingReportId === r.id" @tap="onResolveReport(r, true)">改判通过</button>
+          <button class="pixel-btn-sm-red" :loading="resolvingReportId === r.id" @tap="onResolveReport(r, false)">维持原判</button>
+        </view>
+        <text v-else-if="r.status === 0 || r.duelStatus !== 1" class="report-sub dim">局状态：{{ duelStatusText(r.duelStatus) }}（{{ r.duelStatus === 1 ? '可改判' : '不可改判' }}）</text>
+      </view>
+      <view v-if="reports.length" class="pager">
+        <button class="pixel-btn-sm" :disabled="reportPage === 1" @tap="fetchReports(reportPage - 1)">上一页</button>
+        <text class="page-num">{{ reportPage }}/{{ reportTotalPages }}</text>
+        <button class="pixel-btn-sm" :disabled="reportPage >= reportTotalPages" @tap="fetchReports(reportPage + 1)">下一页</button>
+      </view>
+    </view>
+
     <!-- 新建弹窗 -->
     <view v-if="createVisible" class="modal-mask" @tap="createVisible = false">
       <view class="modal pixel-card" @tap.stop>
@@ -212,22 +253,105 @@ import {
   deleteAdminUser,
   getAdminStats,
   getAnnouncements,
+  getReportPage,
   pageAdminUsers,
+  resolveReport,
   updateAdminUser
 } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
-import type { AdminStatsVO, AdminUserVO, AnnouncementVO } from '@/types/api'
+import type { AdminStatsVO, AdminUserVO, AnnouncementVO, ReportAdminVO } from '@/types/api'
 import { uploadImage } from '@/utils/upload'
 
 const userStore = useUserStore()
 
 const isAdmin = computed(() => userStore.userInfo?.userRole === 'admin')
 
-/** users=用户管理 dash=数据看板 */
-const tab = ref<'users' | 'dash'>('users')
+/** users=用户管理 dash=数据看板 reports=举报处理 */
+const tab = ref<'users' | 'dash' | 'reports'>('users')
 
 const showUsers = computed(() => tab.value === 'users')
 const showDash = computed(() => tab.value === 'dash')
+
+// ===== 举报处理 =====
+
+const reports = ref<ReportAdminVO[]>([])
+const reportPage = ref(1)
+const reportTotalPages = ref(1)
+const reportStatusFilter = ref<number | undefined>(undefined)
+const resolvingReportId = ref<number | null>(null)
+const reportPendingCount = ref(0)
+
+function switchReports() {
+  tab.value = 'reports'
+  fetchReports(1)
+}
+
+function setReportFilter(s: number | undefined) {
+  reportStatusFilter.value = s
+  fetchReports(1)
+}
+
+async function fetchReports(page: number) {
+  reportPage.value = page
+  try {
+    const d = await getReportPage(page, 5, reportStatusFilter.value)
+    reports.value = d.records
+    reportTotalPages.value = d.pages || 1
+    if (reportStatusFilter.value === undefined && page === 1) {
+      reportPendingCount.value = d.records.filter((r) => r.status === 0).length
+    }
+  } catch {
+    // 统一提示
+  }
+}
+
+async function onResolveReport(r: ReportAdminVO, approve: boolean) {
+  if (resolvingReportId.value) return
+  if (approve && r.duelStatus !== 1) {
+    uni.showToast({ title: '局已结算/解散，无法改判', icon: 'none' })
+    return
+  }
+  const done = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: approve ? '改判通过' : '维持原判',
+      content: approve
+        ? `改判「${r.submitterName}」的凭证为通过：补回当日份额、恢复记录、补发事件结算。确认？`
+        : `维持对「${r.submitterName}」凭证的驳回，举报结案。确认？`,
+      success: (res) => resolve(!!res.confirm)
+    })
+  })
+  if (!done) return
+  resolvingReportId.value = r.id
+  try {
+    await resolveReport(r.id, approve)
+    uni.showToast({ title: approve ? '已改判通过' : '已维持原判', icon: 'none' })
+    fetchReports(reportPage.value)
+  } catch {
+    // 统一提示
+  } finally {
+    resolvingReportId.value = null
+  }
+}
+
+function reportStatusText(s: number) {
+  return ({ 0: '待处理', 1: '已改判', 2: '已维持', 3: '无法处理' } as Record<number, string>)[s] ?? ''
+}
+
+function reportTagClass(s: number) {
+  return ({ 0: 'role-tag-admin', 1: 'role-tag-user', 2: '', 3: '' } as Record<number, string>)[s] ?? ''
+}
+
+function appealStatusText(s: number) {
+  return ({ 0: '待仲裁', 1: '组长改判', 2: '组长维持', 3: '超时自动改判' } as Record<number, string>)[s] ?? ''
+}
+
+function duelStatusText(s: number) {
+  return ({ 0: '招募中', 1: '进行中', 2: '已结算', 3: '已解散' } as Record<number, string>)[s] ?? ''
+}
+
+function previewImg(url: string) {
+  uni.previewImage({ urls: [url] })
+}
 
 const stats = ref<AdminStatsVO | null>(null)
 const statsLoading = ref(false)
@@ -594,6 +718,72 @@ function fmtTime(value: string) {
     font-size: 24rpx;
     color: $pixel-ink-light;
   }
+}
+
+/* 举报处理 */
+.report-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 3rpx dashed rgba(0, 0, 0, 0.12);
+  flex-wrap: wrap;
+
+  .report-head {
+    flex: 1;
+    min-width: 60%;
+    display: flex;
+    flex-direction: column;
+    gap: 6rpx;
+  }
+
+  .report-title {
+    font-size: 26rpx;
+    font-weight: 900;
+    color: $pixel-ink;
+    display: flex;
+    align-items: center;
+    gap: 10rpx;
+    flex-wrap: wrap;
+  }
+
+  .report-sub {
+    font-size: 22rpx;
+    color: $pixel-ink-light;
+
+    &.dim {
+      opacity: 0.75;
+    }
+  }
+
+  .report-reason {
+    font-size: 22rpx;
+    color: $pixel-red;
+  }
+
+  .report-img {
+    width: 150rpx;
+    height: 150rpx;
+    border: 3rpx solid $pixel-ink;
+    flex-shrink: 0;
+  }
+
+  .report-ops {
+    display: flex;
+    gap: 12rpx;
+    width: 100%;
+  }
+}
+
+.empty-tip {
+  text-align: center;
+  color: $pixel-ink-light;
+  font-size: 24rpx;
+  padding: 30rpx 0;
+}
+
+.page-num {
+  font-size: 24rpx;
+  color: $pixel-ink-light;
 }
 
 .fab {

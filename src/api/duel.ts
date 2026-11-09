@@ -1,4 +1,5 @@
 import type {
+  AppealPendingVO,
   ApplicationsApproveAllVO,
   DuelCreateRequest,
   DuelUpdateRequest,
@@ -46,6 +47,24 @@ export const getPendingReviews = (duelId: number, scope: 'mine' | 'all' = 'mine'
 /** 审核记录（组内公示，最近 50 条） */
 export const getReviewHistory = (duelId: number) =>
   get<ReviewHistoryVO[]>(`/duel/${duelId}/review/history`)
+
+// ===== 上诉 / 举报（救济通道，仅针对驳回） =====
+
+/** 上诉：互审局本人被驳回凭证，48h 内每凭证一次，交组长仲裁 */
+export const appealEvidence = (duelId: number, evidenceId: number, reason: string) =>
+  post<number>(`/duel/${duelId}/appeal`, { evidenceId, reason })
+
+/** 组长（互审局）待仲裁上诉列表 */
+export const getPendingAppeals = (duelId: number) =>
+  get<AppealPendingVO[]>(`/duel/${duelId}/appeal/pending`)
+
+/** 组长仲裁：改判通过（补钱+补事件结算）/ 维持驳回 */
+export const resolveAppeal = (duelId: number, appealId: number, approve: boolean, remark?: string) =>
+  post<CheckInResultVO | null>(`/duel/${duelId}/appeal/resolve`, { appealId, approve, remark })
+
+/** 举报死斗：组长局驳回直报；互审局须上诉被维持后；每人每局一次 */
+export const reportDuel = (duelId: number, evidenceId: number, reason: string) =>
+  post<number>(`/duel/${duelId}/report`, { evidenceId, reason })
 
 /** 我的待收拍一拍：读取即消费 */
 export const getMyNudges = () => get<NudgeInboxVO>('/nudge/mine')

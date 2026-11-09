@@ -150,6 +150,33 @@
       </view>
     </view>
 
+    <!-- 组长仲裁卡（互审局 + 组长 + 进行中） -->
+    <view v-if="isLeader && duel.status === 1 && duel.reviewMode === 1" class="review-card pixel-card">
+      <view class="flex-between">
+        <text class="pixel-h2">⚖ 上诉待处理{{ appealList.length ? `（${appealList.length}）` : '' }}</text>
+        <button class="pixel-btn-sm-green" @tap="loadAppeals">刷新</button>
+      </view>
+      <view v-if="appealList.length === 0" class="review-empty">暂无待仲裁上诉</view>
+      <view v-for="a in appealList" :key="a.appealId" class="review-item">
+        <image
+          class="pixelated review-img"
+          :src="a.previewUrl || a.imageUrl"
+          mode="aspectFill"
+          @tap="previewImage(a.previewUrl || a.imageUrl)"
+        />
+        <view class="review-info">
+          <text class="review-user">{{ a.userName }} · {{ a.checkInDate }}</text>
+          <text class="review-remark">❌ 原驳回：{{ a.rejectRemark || '无' }}</text>
+          <text class="review-remark">⚖ 上诉：{{ a.appealReason }}</text>
+          <text class="appeal-deadline">仲裁截止 {{ formatDeadline(a.deadline) }}，逾期自动改判通过</text>
+          <view class="review-btns">
+            <button class="pixel-btn-sm-green" :loading="resolvingAppealId === a.appealId" @tap="onArbitrate(a, true)">改判通过</button>
+            <button class="pixel-btn-sm-red" :loading="resolvingAppealId === a.appealId" @tap="onArbitrate(a, false)">维持驳回</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 审核记录（组内公示，进行中可见） -->
     <view v-if="duel.status === 1 && isMember" class="review-card pixel-card">
       <view class="flex-between">
@@ -162,10 +189,17 @@
           {{ h.userName }} · {{ h.checkInDate }} ·
           <text :class="h.reviewStatus === 1 ? 'st-pass' : 'st-reject'">{{ h.reviewStatus === 1 ? '通过' : '驳回' }}</text>
           <text v-if="h.selfReview" class="history-self">（自审）</text>
+          <text v-if="h.overturned" class="history-overturned"> ⚠ 已被改判</text>
         </text>
         <text v-if="h.reviewerName" class="history-sub">审核人：{{ h.reviewerName }}</text>
-        <text v-else-if="h.reviewRemark" class="history-sub dim">{{ h.reviewRemark }}</text>
-        <text v-if="h.reviewRemark && h.reviewerName" class="history-sub">理由：{{ h.reviewRemark }}</text>
+        <text v-if="h.reviewRemark" class="history-sub">理由：{{ h.reviewRemark }}</text>
+        <view v-if="historyActions(h).length" class="history-btns">
+          <button v-for="act in historyActions(h)" :key="act.key" class="pixel-btn-sm" :class="act.cls" @tap="act.run">
+            {{ act.label }}
+          </button>
+        </view>
+        <text v-else-if="h.appealStatus === 0" class="history-sub dim">已上诉，待组长仲裁（超时自动改判）</text>
+        <text v-else-if="h.appealStatus === 1 || h.appealStatus === 3" class="history-sub dim">上诉改判通过</text>
       </view>
     </view>
 
@@ -301,6 +335,44 @@
       </view>
     </view>
 
+    <!-- 上诉理由弹窗 -->
+    <view v-if="appealTarget" class="modal-mask" @tap="appealTarget = null">
+      <view class="modal pixel-card" @tap.stop>
+        <text class="pixel-h2">⚖ 上诉理由（必填）</text>
+        <input
+          v-model="appealReason"
+          class="pixel-input reject-input"
+          :maxlength="255"
+          placeholder="例如：照片清晰可见打卡内容，驳回理由不成立"
+          placeholder-class="pixel-placeholder"
+        />
+        <text class="impeach-note">交组长仲裁；48 小时未仲裁自动改判通过；每条凭证限上诉一次</text>
+        <view class="modal-btns">
+          <button class="pixel-btn-sm" @tap="appealTarget = null">取消</button>
+          <button class="pixel-btn-sm-green" :loading="appealing" @tap="doAppeal">提交上诉</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 举报理由弹窗 -->
+    <view v-if="reportTarget" class="modal-mask" @tap="reportTarget = null">
+      <view class="modal pixel-card" @tap.stop>
+        <text class="pixel-h2">🚨 举报理由（必填）</text>
+        <input
+          v-model="reportReason"
+          class="pixel-input reject-input"
+          :maxlength="255"
+          placeholder="例如：证据充分仍被驳回，组长裁决不公"
+          placeholder-class="pixel-placeholder"
+        />
+        <text class="impeach-note">交平台 admin 终裁（可改判通过并补偿）；每个死斗限举报一次</text>
+        <view class="modal-btns">
+          <button class="pixel-btn-sm" @tap="reportTarget = null">取消</button>
+          <button class="pixel-btn-sm-red" :loading="reporting" @tap="doReport">提交举报</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 战斗结算（凭证审核通过时展示被审核者的结算由后端推送，此处仅普通提示） -->
   </view>
 </template>
@@ -310,16 +382,20 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin } from '@/utils/auth'
 import {
+  appealEvidence,
   approveAllApplications,
   getDuelDetail,
   getInvitePoster,
   getJoinApplications,
+  getPendingAppeals,
   getPendingReviews,
   getReviewHistory,
   impeachLeader,
   joinDuel,
   nudgeMember,
   removeMember,
+  reportDuel,
+  resolveAppeal,
   reviewJoinApplication,
   reviewProof,
   transferLeader,
@@ -333,6 +409,7 @@ import { loadTaskProgress, saveTaskProgress } from '@/utils/taskState'
 import { useDuelStore } from '@/stores/duel'
 import { useUserStore } from '@/stores/user'
 import type {
+  AppealPendingVO,
   DuelVO,
   InviteVO,
   JoinRequestVO,
@@ -350,6 +427,14 @@ const duel = ref<DuelVO | null>(null)
 const pendingList = ref<ReviewItemVO[]>([])
 const allPendingList = ref<ReviewItemVO[]>([])
 const historyList = ref<ReviewHistoryVO[]>([])
+const appealList = ref<AppealPendingVO[]>([])
+const appealTarget = ref<ReviewHistoryVO | null>(null)
+const appealReason = ref('')
+const appealing = ref(false)
+const reportTarget = ref<ReviewHistoryVO | null>(null)
+const reportReason = ref('')
+const reporting = ref(false)
+const resolvingAppealId = ref<number | null>(null)
 const settingsForm = ref({ reviewMode: 0 as 0 | 1, aiReview: false })
 const savingSettings = ref(false)
 const myTodayProofUrl = ref('')
@@ -456,6 +541,7 @@ async function load() {
       }
       if (duel.value.reviewMode === 1 && isLeader.value) {
         loadAllPending()
+        loadAppeals()
       }
       loadHistory()
     }
@@ -492,6 +578,114 @@ async function loadHistory() {
     historyList.value = (await getReviewHistory(duelId.value)) || []
   } catch {
     // 统一提示
+  }
+}
+
+async function loadAppeals() {
+  try {
+    appealList.value = (await getPendingAppeals(duelId.value)) || []
+  } catch {
+    // 统一提示
+  }
+}
+
+function formatDeadline(iso: string): string {
+  return (iso || '').replace('T', ' ').slice(5, 16)
+}
+
+/**
+ * 审核记录驳回条目的救济按钮（仅本人的被驳回凭证）：
+ * 互审局未上诉且在 48h 内 → 上诉；互审局上诉被维持 / 组长局驳回 → 举报（每局一次）
+ */
+function historyActions(h: ReviewHistoryVO): Array<{ key: string; label: string; cls?: string; run: () => void }> {
+  if (duel.value?.status !== 1 || h.reviewStatus !== 2 || h.userId !== meId() || h.overturned) {
+    return []
+  }
+  const peer = duel.value?.reviewMode === 1
+  const actions: Array<{ key: string; label: string; cls?: string; run: () => void }> = []
+  const within48h = Date.now() - new Date(h.reviewTime).getTime() < 48 * 3600 * 1000
+  if (peer && h.appealStatus == null && within48h) {
+    actions.push({ key: 'appeal', label: '⚖ 上诉', run: () => openAppeal(h) })
+  }
+  const reported = !!duel.value?.myReported
+  const appealDone = !peer || h.appealStatus === 2
+  if (appealDone && !reported) {
+    actions.push({ key: 'report', label: '🚨 举报', cls: 'pixel-btn-sm-red', run: () => openReport(h) })
+  }
+  return actions
+}
+
+function openAppeal(h: ReviewHistoryVO) {
+  appealReason.value = ''
+  appealTarget.value = h
+}
+
+async function doAppeal() {
+  const reason = appealReason.value.trim()
+  if (!reason) {
+    uni.showToast({ title: '请填写上诉理由', icon: 'none' })
+    return
+  }
+  if (!appealTarget.value || appealing.value) return
+  appealing.value = true
+  try {
+    await appealEvidence(duelId.value, appealTarget.value.evidenceId, reason)
+    appealTarget.value = null
+    uni.showToast({ title: '已上诉，等待组长仲裁', icon: 'none' })
+    loadHistory()
+    load()
+  } catch {
+    // 统一提示
+  } finally {
+    appealing.value = false
+  }
+}
+
+function openReport(h: ReviewHistoryVO) {
+  reportReason.value = ''
+  reportTarget.value = h
+}
+
+async function doReport() {
+  const reason = reportReason.value.trim()
+  if (!reason) {
+    uni.showToast({ title: '请填写举报理由', icon: 'none' })
+    return
+  }
+  if (!reportTarget.value || reporting.value) return
+  reporting.value = true
+  try {
+    await reportDuel(duelId.value, reportTarget.value.evidenceId, reason)
+    reportTarget.value = null
+    uni.showToast({ title: '已举报，等待平台处理', icon: 'none' })
+    load()
+  } catch {
+    // 统一提示
+  } finally {
+    reporting.value = false
+  }
+}
+
+async function onArbitrate(a: AppealPendingVO, approve: boolean) {
+  if (resolvingAppealId.value) return
+  const done = await confirmModal(
+    approve ? '改判通过' : '维持驳回',
+    approve
+      ? `改判通过后将补回「${a.userName}」当日份额并补发事件结算，确认？`
+      : `维持对「${a.userName}」凭证的驳回？其随后可升级举报由平台终裁`
+  )
+  if (!done) return
+  resolvingAppealId.value = a.appealId
+  try {
+    await resolveAppeal(duelId.value, a.appealId, approve)
+    uni.showToast({ title: approve ? '已改判通过' : '已维持驳回', icon: 'none' })
+    loadAppeals()
+    loadHistory()
+    load()
+  } catch {
+    // 统一提示
+  } finally {
+    resolvingAppealId.value = null
   }
 }
 
@@ -1079,6 +1273,25 @@ const statusClass = (status: number) =>
         font-size: 20rpx;
         color: $pixel-ink-light;
       }
+
+      .history-overturned {
+        font-size: 22rpx;
+        font-weight: 900;
+        color: $pixel-red;
+      }
+    }
+
+    .history-btns {
+      display: flex;
+      gap: 12rpx;
+      margin-top: 10rpx;
+    }
+
+    .appeal-deadline {
+      display: block;
+      margin-top: 6rpx;
+      font-size: 20rpx;
+      color: $pixel-red;
     }
 
     .history-sub {

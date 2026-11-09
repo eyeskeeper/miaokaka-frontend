@@ -7,6 +7,7 @@ import type {
   AnnouncementCreateRequest,
   AnnouncementVO,
   PageData,
+  ReportAdminVO,
   UserBanRequest
 } from '@/types/api'
 import { del, get, post, put } from '@/utils/request'
@@ -45,3 +46,11 @@ export const getAnnouncements = (current = 1, pageSize = 20) =>
 
 /** 数据看板：用户/打卡/局数统计 + 近 7 天趋势 */
 export const getAdminStats = () => get<AdminStatsVO>('/admin/stats')
+
+/** 举报分页（含凭证/审核/上诉链）；状态 0待处理 1改判 2维持 3无法处理 */
+export const getReportPage = (current = 1, pageSize = 20, status?: number) =>
+  get<PageData<ReportAdminVO>>('/admin/report/page', { current, pageSize, status })
+
+/** 处理举报：改判通过（补钱+补事件结算，仅进行中局且提交者在册）/ 维持原判 */
+export const resolveReport = (reportId: number, approve: boolean, remark?: string) =>
+  post<unknown>(`/admin/report/${reportId}/resolve`, { approve, remark })
