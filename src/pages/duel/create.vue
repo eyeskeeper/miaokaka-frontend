@@ -105,7 +105,7 @@
             </view>
           </view>
         </view>
-        <text class="field-tip">招募期可改，开赛后锁定；待审超 24 小时自动通过</text>
+        <text class="field-tip">招募期可改，开赛后锁定；凭证当日未审完自动通过，次日打卡可分得昨日缺卡喵币</text>
       </view>
 
       <view class="form-item">

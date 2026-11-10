@@ -96,8 +96,8 @@ function loadMore() {
 }
 
 function typeIcon(type: number) {
-  // 见后端 NotificationConstant：1=被移除出死斗 7=死斗解散 8=收到上诉 9=上诉/举报结果 10=互审派单 11=举报待处理(admin)
-  return ({ 1: '⚔️', 7: '🏳️', 8: '⚖', 9: '✅', 10: '🔄', 11: '🚨' } as Record<number, string>)[type] ?? '📢'
+  // 见后端 NotificationConstant：1=被移除出死斗 7=死斗解散 8=收到上诉 9=上诉/举报结果 10=互审派单 11=举报待处理(admin) 12=误判扣回(组长) 13=最后一天分成
+  return ({ 1: '⚔️', 7: '🏳️', 8: '⚖', 9: '✅', 10: '🔄', 11: '🚨', 12: '💸', 13: '💰' } as Record<number, string>)[type] ?? '📢'
 }
 
 async function tapItem(n: NotificationVO) {

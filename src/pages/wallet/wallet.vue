@@ -49,7 +49,7 @@ function loadMore() {
   walletStore.fetchWallet(false)
 }
 
-// 见后端 DuelConstant.COIN_TX_*：0注册赠送 1押金托管 2退款 3奖池分成 4管理员调整 5每日打卡退还 6凭证驳回追回 7打卡奖励
+// 见后端 DuelConstant.COIN_TX_*：0注册赠送 1押金托管 2退款 3奖池分成 4管理员调整 5每日打卡退还 6凭证驳回追回 7打卡奖励 8每日缺卡分成 9误判垫付扣回
 const typeLabel = (type: number) =>
   ({
     0: '注册赠送',
@@ -59,7 +59,9 @@ const typeLabel = (type: number) =>
     4: '管理员调整',
     5: '每日打卡退还',
     6: '驳回追回',
-    7: '打卡奖励'
+    7: '打卡奖励',
+    8: '每日缺卡分成',
+    9: '误判扣回'
   } as Record<number, string>)[type] ?? '喵币变动'
 
 const formatTime = (iso: string) => {
