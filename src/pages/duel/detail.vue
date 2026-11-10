@@ -234,6 +234,7 @@
           <view class="flex-row">
             <text class="member-name">{{ m.userName }}</text>
             <text v-if="m.isLeader" class="pixel-tag leader-tag">组长</text>
+            <text v-if="(m.misjudgeCount ?? 0) > 0" class="pixel-tag misjudge-tag">⚠误判{{ m.misjudgeCount }}</text>
           </view>
           <text class="member-days">坚持 {{ m.days }} 天{{ duel.mode === 1 ? '' : ' · 押金 ' + m.deposit }}</text>
         </view>
@@ -1441,6 +1442,11 @@ const statusClass = (status: number) =>
 
   .leader-tag {
     background: $pixel-yellow;
+  }
+
+  .misjudge-tag {
+    background: $pixel-red;
+    color: #fffbef;
   }
 
   .member-days {

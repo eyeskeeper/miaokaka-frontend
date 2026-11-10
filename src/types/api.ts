@@ -257,6 +257,8 @@ export interface MemberVO {
   days: number
   deposit: number
   status: number
+  /** 本局误判次数（作为原审核人被改判的凭证数，公示；0 不渲染） */
+  misjudgeCount?: number
 }
 
 /** 进行中的弹劾（已结束的不下发） */
